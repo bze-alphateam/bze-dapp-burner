@@ -16,6 +16,7 @@ import {
     Button,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BurnModal } from "@/components/burn-modal";
 
 // Mock data for pending burns
@@ -182,7 +183,7 @@ const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
 };
 
 // Pending Burn Token Box Component with playful design
-const PendingBurnBox = ({ token }: { token: typeof mockPendingBurns[0] }) => {
+const PendingBurnBox = ({ token, onClick }: { token: typeof mockPendingBurns[0], onClick: () => void }) => {
     return (
         <Box
             p="5"
@@ -191,6 +192,8 @@ const PendingBurnBox = ({ token }: { token: typeof mockPendingBurns[0] }) => {
             borderWidth="3px"
             borderColor="orange.400"
             shadow="lg"
+            cursor="pointer"
+            onClick={onClick}
             _hover={{
                 borderColor: "orange.500",
                 shadow: "2xl",
@@ -264,6 +267,13 @@ export default function BurnerHomePage() {
 
     // Burn modal state
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
+
+    // Router for navigation
+    const router = useRouter();
+
+    const handleCoinClick = (denom: string) => {
+        router.push(`/coin?denom=${encodeURIComponent(denom)}`);
+    };
 
     return (
         <Box minH="100vh" pb="12">
@@ -374,7 +384,7 @@ export default function BurnerHomePage() {
                         >
                             {mockPendingBurns.map((token, idx) => (
                                 <GridItem key={idx}>
-                                    <PendingBurnBox token={token} />
+                                    <PendingBurnBox token={token} onClick={() => handleCoinClick(token.denom)} />
                                 </GridItem>
                             ))}
                         </Grid>
@@ -450,6 +460,8 @@ export default function BurnerHomePage() {
                                         {mockLastBurnings.map((burn, idx) => (
                                             <Table.Row
                                                 key={idx}
+                                                cursor="pointer"
+                                                onClick={() => handleCoinClick(burn.ticker.toLowerCase().startsWith('bze') ? 'ubze' : `u${burn.ticker.toLowerCase()}`)}
                                                 _hover={{
                                                     bg: "orange.50",
                                                     _dark: { bg: "orange.950" }
@@ -514,6 +526,8 @@ export default function BurnerHomePage() {
                                         <Box
                                             key={idx}
                                             p="4"
+                                            cursor="pointer"
+                                            onClick={() => handleCoinClick(burn.ticker.toLowerCase().startsWith('bze') ? 'ubze' : `u${burn.ticker.toLowerCase()}`)}
                                             borderBottomWidth={idx < mockLastBurnings.length - 1 ? "2px" : "0"}
                                             borderColor="orange.200"
                                             _dark={{ borderColor: "orange.800" }}
