@@ -89,14 +89,18 @@ export default function RafflesPage() {
 
                     {/* Info Card - What are Burning Raffles */}
                     <Card.Root
-                        bg="blue.50"
+                        bgGradient="to-br"
+                        gradientFrom="blue.50"
+                        gradientTo="blue.100"
                         _dark={{
-                            bg: "blue.950/30",
+                            gradientFrom: "blue.950",
+                            gradientTo: "blue.900",
                             borderColor: "blue.500"
                         }}
-                        borderWidth="2px"
+                        borderWidth="3px"
                         borderColor="blue.300"
-                        borderRadius="2xl"
+                        borderRadius="3xl"
+                        shadow="lg"
                     >
                         <Card.Body>
                             <VStack gap="4" align="stretch">
@@ -132,14 +136,14 @@ export default function RafflesPage() {
                                     }}
                                     borderWidth="3px"
                                     borderColor="purple.400"
-                                    borderRadius="2xl"
+                                    borderRadius="3xl"
                                     shadow="lg"
                                     cursor="pointer"
                                     onClick={() => handleRaffleClick(raffle.denom)}
-                                    transition="all 0.2s"
+                                    transition="all 0.3s"
                                     _hover={{
-                                        transform: "translateY(-4px)",
-                                        shadow: "xl",
+                                        transform: "translateY(-4px) rotate(1deg)",
+                                        shadow: "2xl",
                                         borderColor: "purple.500",
                                     }}
                                 >

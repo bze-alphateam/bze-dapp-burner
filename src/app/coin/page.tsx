@@ -171,12 +171,14 @@ export default function CoinDetailPage() {
                         gradientFrom="orange.50"
                         gradientTo="orange.100"
                         _dark={{
-                            bg: "gray.800",
+                            gradientFrom: "orange.950",
+                            gradientTo: "orange.900",
                             borderColor: "orange.500"
                         }}
-                        borderWidth="3px"
+                        borderWidth="4px"
                         borderColor="orange.300"
-                        borderRadius="2xl"
+                        borderRadius="3xl"
+                        shadow="lg"
                     >
                         <Card.Body>
                             <VStack gap="6" align="stretch">
@@ -225,39 +227,32 @@ export default function CoinDetailPage() {
                                     </Button>
                                 </HStack>
 
-                                {/* Burnable Status */}
-                                <Box
-                                    p="4"
-                                    bg={coinData.isBurnable ? "green.50" : "yellow.50"}
-                                    _dark={{
-                                        bg: coinData.isBurnable ? "green.900/30" : "yellow.900/30",
-                                        borderColor: coinData.isBurnable ? "green.500" : "yellow.500"
-                                    }}
-                                    borderRadius="lg"
-                                    borderWidth="2px"
-                                    borderColor={coinData.isBurnable ? "green.300" : "yellow.300"}
-                                >
-                                    <HStack gap="3">
-                                        <Text fontSize="2xl">
-                                            {coinData.isBurnable ? "✅" : "⚠️"}
-                                        </Text>
-                                        <VStack gap="1" align="start" flex="1">
-                                            <Text fontSize="sm" fontWeight="bold" color={coinData.isBurnable ? "green.700" : "yellow.700"} _dark={{ color: coinData.isBurnable ? "green.300" : "yellow.300" }}>
-                                                {coinData.isBurnable ? "Directly Burnable" : "Not Directly Burnable"}
-                                            </Text>
-                                            {!coinData.isBurnable && (
+                                {/* Burnable Status - Only show if NOT burnable */}
+                                {!coinData.isBurnable && (
+                                    <Box
+                                        p="4"
+                                        bg="yellow.50"
+                                        _dark={{
+                                            bg: "yellow.900/30",
+                                            borderColor: "yellow.500"
+                                        }}
+                                        borderRadius="lg"
+                                        borderWidth="2px"
+                                        borderColor="yellow.300"
+                                    >
+                                        <HStack gap="3">
+                                            <Text fontSize="2xl">⚠️</Text>
+                                            <VStack gap="1" align="start" flex="1">
+                                                <Text fontSize="sm" fontWeight="bold" color="yellow.700" _dark={{ color: "yellow.300" }}>
+                                                    Not Directly Burnable
+                                                </Text>
                                                 <Text fontSize="xs" color="fg.muted">
                                                     This token will be exchanged to BZE first, then the BZE will be burned.
                                                 </Text>
-                                            )}
-                                            {coinData.isBurnable && (
-                                                <Text fontSize="xs" color="fg.muted">
-                                                    This token can be burned directly without any exchange.
-                                                </Text>
-                                            )}
-                                        </VStack>
-                                    </HStack>
-                                </Box>
+                                            </VStack>
+                                        </HStack>
+                                    </Box>
+                                )}
                             </VStack>
                         </Card.Body>
                     </Card.Root>
@@ -292,10 +287,10 @@ export default function CoinDetailPage() {
                                             gradientTo: "orange.950",
                                             borderColor: "purple.500"
                                         }}
-                                        borderWidth="3px"
+                                        borderWidth="4px"
                                         borderColor="purple.400"
-                                        borderRadius="2xl"
-                                        shadow="lg"
+                                        borderRadius="3xl"
+                                        shadow="xl"
                                     >
                                         <Card.Body>
                                             <VStack gap="4" align="stretch">
@@ -427,15 +422,18 @@ export default function CoinDetailPage() {
 
                     {/* Total Burned Statistics */}
                     <Card.Root
-                        bg="orange.50"
+                        bgGradient="to-br"
+                        gradientFrom="orange.50"
+                        gradientTo="orange.100"
                         _dark={{
-                            bg: "gray.800",
+                            gradientFrom: "orange.950",
+                            gradientTo: "orange.900",
                             borderColor: "orange.500"
                         }}
-                        borderWidth="2px"
+                        borderWidth="3px"
                         borderColor="orange.300"
                         borderRadius="2xl"
-                        shadow="md"
+                        shadow="lg"
                     >
                         <Card.Body>
                             <VStack gap="2" align="center" py="4">
@@ -466,13 +464,13 @@ export default function CoinDetailPage() {
                                 🔥 Recent Burns
                             </Text>
                             <Box
-                                borderRadius="2xl"
+                                borderRadius="3xl"
                                 borderWidth="3px"
                                 borderColor="orange.300"
                                 _dark={{ borderColor: "orange.700" }}
                                 overflow="hidden"
                                 bg="bg.panel"
-                                shadow="lg"
+                                shadow="xl"
                             >
                                 {/* Desktop Table View */}
                                 <Box display={{ base: "none", md: "block" }} overflowX="auto">
