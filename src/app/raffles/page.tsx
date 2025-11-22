@@ -12,6 +12,7 @@ import {
     Grid,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
+import { RaffleInfo } from "@/components/raffle-info";
 
 // Mock coin data
 const mockCoins: Record<string, {
@@ -29,7 +30,7 @@ const mockCoins: Record<string, {
 const mockCoinRaffles: Record<string, Array<{
     id: string;
     name: string;
-    ticketPrice: string;
+    contributionPrice: string;
     currentPrize: string;
     winChance: string;
     timeRemaining: string;
@@ -38,7 +39,7 @@ const mockCoinRaffles: Record<string, Array<{
         {
             id: "raffle-1",
             name: "BZE Lucky Burn",
-            ticketPrice: "10.00",
+            contributionPrice: "10.00",
             currentPrize: "500.00",
             winChance: "1 in 100",
             timeRemaining: "2 hours",
@@ -48,7 +49,7 @@ const mockCoinRaffles: Record<string, Array<{
         {
             id: "raffle-2",
             name: "ATOM Mega Raffle",
-            ticketPrice: "5.00",
+            contributionPrice: "5.00",
             currentPrize: "200.00",
             winChance: "1 in 50",
             timeRemaining: "45 minutes",
@@ -79,12 +80,36 @@ export default function RafflesPage() {
                     {/* Page Header */}
                     <VStack gap="2" align="start">
                         <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black">
-                            🎰 Burning Raffles
+                            🔥 Burning Raffles
                         </Text>
                         <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted">
                             Join active raffles and win rewards by burning tokens!
                         </Text>
                     </VStack>
+
+                    {/* Info Card - What are Burning Raffles */}
+                    <Card.Root
+                        bg="blue.50"
+                        _dark={{
+                            bg: "blue.950/30",
+                            borderColor: "blue.500"
+                        }}
+                        borderWidth="2px"
+                        borderColor="blue.300"
+                        borderRadius="2xl"
+                    >
+                        <Card.Body>
+                            <VStack gap="4" align="stretch">
+                                <HStack gap="3">
+                                    <Text fontSize="3xl">ℹ️</Text>
+                                    <Text fontSize="xl" fontWeight="black" color="blue.700" _dark={{ color: "blue.300" }}>
+                                        What are Burning Raffles?
+                                    </Text>
+                                </HStack>
+                                <RaffleInfo />
+                            </VStack>
+                        </Card.Body>
+                    </Card.Root>
 
                     {/* Raffles Grid */}
                     {allRaffles.length > 0 ? (
@@ -161,7 +186,7 @@ export default function RafflesPage() {
                                                 </Badge>
                                             </HStack>
 
-                                            {/* Prize and Ticket Info */}
+                                            {/* Prize and Contribution Info */}
                                             <Grid templateColumns="1fr 1fr" gap="3">
                                                 {/* Current Prize */}
                                                 <Box
@@ -184,7 +209,7 @@ export default function RafflesPage() {
                                                     </VStack>
                                                 </Box>
 
-                                                {/* Ticket Price */}
+                                                {/* Contribution Price */}
                                                 <Box
                                                     p="3"
                                                     bg="white"
@@ -194,10 +219,10 @@ export default function RafflesPage() {
                                                 >
                                                     <VStack gap="1">
                                                         <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                            🎫 TICKET
+                                                            💰 CONTRIBUTION
                                                         </Text>
                                                         <Text fontSize="xl" fontWeight="black" color="purple.500">
-                                                            {raffle.ticketPrice}
+                                                            {raffle.contributionPrice}
                                                         </Text>
                                                         <Text fontSize="xs" color="fg.muted">
                                                             {raffle.coinData.ticker}
@@ -227,7 +252,7 @@ export default function RafflesPage() {
                         <Card.Root>
                             <Card.Body>
                                 <VStack gap="3" align="center" py="12">
-                                    <Text fontSize="4xl">🎰</Text>
+                                    <Text fontSize="4xl">🔥</Text>
                                     <Text fontSize="xl" fontWeight="bold">
                                         No Active Raffles
                                     </Text>

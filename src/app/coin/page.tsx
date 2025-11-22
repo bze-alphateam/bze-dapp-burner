@@ -17,6 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { BurnModal } from "@/components/burn-modal";
 import { RaffleModal } from "@/components/raffle-modal";
+import { RaffleInfoModal } from "@/components/raffle-info-modal";
 
 // Mock coin data
 const mockCoins: Record<string, {
@@ -39,7 +40,7 @@ const mockCoins: Record<string, {
 const mockCoinRaffles: Record<string, Array<{
     id: string;
     name: string;
-    ticketPrice: string;
+    contributionPrice: string;
     currentPrize: string;
     winChance: string; // e.g., "1 in 10"
     timeRemaining: string;
@@ -51,7 +52,7 @@ const mockCoinRaffles: Record<string, Array<{
         {
             id: "raffle-1",
             name: "BZE Lucky Burn",
-            ticketPrice: "10.00",
+            contributionPrice: "10.00",
             currentPrize: "500.00",
             winChance: "1 in 100",
             timeRemaining: "2 hours",
@@ -68,7 +69,7 @@ const mockCoinRaffles: Record<string, Array<{
         {
             id: "raffle-2",
             name: "ATOM Mega Raffle",
-            ticketPrice: "5.00",
+            contributionPrice: "5.00",
             currentPrize: "200.00",
             winChance: "1 in 50",
             timeRemaining: "45 minutes",
@@ -113,6 +114,7 @@ export default function CoinDetailPage() {
 
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
     const [isRaffleModalOpen, setIsRaffleModalOpen] = useState(false);
+    const [isRaffleInfoModalOpen, setIsRaffleInfoModalOpen] = useState(false);
     const [selectedRaffle, setSelectedRaffle] = useState<typeof mockCoinRaffles[string][0] | null>(null);
 
     const coinData = useMemo(() => {
@@ -263,9 +265,19 @@ export default function CoinDetailPage() {
                     {/* Burning Raffle Section */}
                     {raffles.length > 0 && (
                         <Box>
-                            <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black" mb="4">
-                                🎰 Burning Raffle
-                            </Text>
+                            <HStack justify="space-between" mb="4" flexWrap="wrap" gap="2">
+                                <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black">
+                                    🔥 Burning Raffle
+                                </Text>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    colorPalette="blue"
+                                    onClick={() => setIsRaffleInfoModalOpen(true)}
+                                >
+                                    ℹ️ Info
+                                </Button>
+                            </HStack>
                             <VStack gap="4" align="stretch">
                                 {raffles.map((raffle) => (
                                     <Card.Root
@@ -335,7 +347,7 @@ export default function CoinDetailPage() {
                                                         </VStack>
                                                     </Box>
 
-                                                    {/* Ticket Price */}
+                                                    {/* Contribution Price */}
                                                     <Box
                                                         p="4"
                                                         bg="white"
@@ -345,10 +357,10 @@ export default function CoinDetailPage() {
                                                     >
                                                         <VStack gap="1">
                                                             <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                                🎫 TICKET
+                                                                💰 CONTRIBUTION
                                                             </Text>
                                                             <Text fontSize="2xl" fontWeight="black" color="purple.500">
-                                                                {raffle.ticketPrice}
+                                                                {raffle.contributionPrice}
                                                             </Text>
                                                             <Text fontSize="xs" color="fg.muted">
                                                                 {coinData.ticker}
@@ -582,12 +594,18 @@ export default function CoinDetailPage() {
                     isOpen={isRaffleModalOpen}
                     onClose={() => setIsRaffleModalOpen(false)}
                     raffleName={selectedRaffle.name}
-                    ticketPrice={selectedRaffle.ticketPrice}
+                    contributionPrice={selectedRaffle.contributionPrice}
                     currentPrize={selectedRaffle.currentPrize}
                     winChance={selectedRaffle.winChance}
                     ticker={coinData?.ticker || ''}
                 />
             )}
+
+            {/* Raffle Info Modal */}
+            <RaffleInfoModal
+                isOpen={isRaffleInfoModalOpen}
+                onClose={() => setIsRaffleInfoModalOpen(false)}
+            />
         </Box>
     );
 }

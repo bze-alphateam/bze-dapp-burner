@@ -17,7 +17,7 @@ interface RaffleModalProps {
     isOpen: boolean;
     onClose: () => void;
     raffleName: string;
-    ticketPrice: string;
+    contributionPrice: string;
     currentPrize: string;
     winChance: string; // e.g., "1 in 10"
     ticker: string;
@@ -27,12 +27,12 @@ export const RaffleModal = ({
     isOpen,
     onClose,
     raffleName,
-    ticketPrice,
+    contributionPrice,
     currentPrize,
     winChance,
     ticker,
 }: RaffleModalProps) => {
-    const [numTickets, setNumTickets] = useState("1");
+    const [numContributions, setNumContributions] = useState("1");
     const [isSpinning, setIsSpinning] = useState(false);
     const [showResult, setShowResult] = useState(false);
     const [didWin, setDidWin] = useState(false);
@@ -41,7 +41,7 @@ export const RaffleModal = ({
     // Reset state when modal opens
     useEffect(() => {
         if (isOpen) {
-            setNumTickets("1");
+            setNumContributions("1");
             setIsSpinning(false);
             setShowResult(false);
             setDidWin(false);
@@ -49,7 +49,7 @@ export const RaffleModal = ({
         }
     }, [isOpen]);
 
-    const handleBuyTickets = () => {
+    const handleBuyContributions = () => {
         setIsSpinning(true);
 
         // Simulate spinning for 3 seconds
@@ -62,8 +62,8 @@ export const RaffleModal = ({
 
             if (won) {
                 // Calculate won amount (mock calculation)
-                const tickets = parseInt(numTickets) || 1;
-                const mockWonAmount = (parseFloat(currentPrize.replace(/,/g, '')) * 0.1 * tickets).toFixed(2);
+                const contributions = parseInt(numContributions) || 1;
+                const mockWonAmount = (parseFloat(currentPrize.replace(/,/g, '')) * 0.1 * contributions).toFixed(2);
                 setWonAmount(mockWonAmount);
             }
 
@@ -73,7 +73,7 @@ export const RaffleModal = ({
 
     const handlePlayAgain = () => {
         setShowResult(false);
-        setNumTickets("1");
+        setNumContributions("1");
     };
 
     const handleClose = () => {
@@ -82,7 +82,7 @@ export const RaffleModal = ({
         }
     };
 
-    const totalCost = (parseFloat(ticketPrice) * (parseInt(numTickets) || 1)).toFixed(2);
+    const totalCost = (parseFloat(contributionPrice) * (parseInt(numContributions) || 1)).toFixed(2);
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && handleClose()}>
@@ -97,7 +97,7 @@ export const RaffleModal = ({
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
-                                🎰 {raffleName}
+                                🔥 {raffleName}
                             </Dialog.Title>
                         </Dialog.Header>
 
@@ -133,23 +133,23 @@ export const RaffleModal = ({
                                             </VStack>
                                         </Box>
 
-                                        {/* Spinning Wheel or Ticket Selection */}
+                                        {/* Spinning Wheel or Contribution Selection */}
                                         {!isSpinning ? (
                                             <>
-                                                {/* Number of Tickets */}
+                                                {/* Number of Contributions */}
                                                 <Box>
                                                     <Field.Root>
-                                                        <Field.Label fontWeight="semibold">Number of Tickets</Field.Label>
+                                                        <Field.Label fontWeight="semibold">Number of Contributions</Field.Label>
                                                         <Input
                                                             size="lg"
                                                             type="number"
                                                             min="1"
-                                                            value={numTickets}
-                                                            onChange={(e) => setNumTickets(e.target.value)}
+                                                            value={numContributions}
+                                                            onChange={(e) => setNumContributions(e.target.value)}
                                                             placeholder="1"
                                                         />
                                                         <Field.HelperText fontSize="xs" color="fg.muted">
-                                                            {ticketPrice} {ticker} per ticket
+                                                            {contributionPrice} {ticker} per contribution
                                                         </Field.HelperText>
                                                     </Field.Root>
                                                 </Box>
@@ -185,7 +185,7 @@ export const RaffleModal = ({
                                                     <HStack gap="2">
                                                         <Text fontSize="lg">⚠️</Text>
                                                         <Text fontSize="xs" color="fg.muted">
-                                                            Remember: Buying more tickets increases your chances, but doesn&apos;t guarantee you&apos;ll win!
+                                                            Remember: More contributions increase your chances, but don&apos;t guarantee you&apos;ll win!
                                                         </Text>
                                                     </HStack>
                                                 </Box>
@@ -194,29 +194,47 @@ export const RaffleModal = ({
                                                 <Button
                                                     size="lg"
                                                     colorPalette="orange"
-                                                    onClick={handleBuyTickets}
+                                                    onClick={handleBuyContributions}
                                                     fontWeight="black"
                                                 >
-                                                    🎫 Buy Tickets & Spin!
+                                                    💰 Make Contribution & Spin!
                                                 </Button>
                                             </>
                                         ) : (
-                                            /* Spinning Animation */
+                                            /* Blockchain Processing Animation */
                                             <Box py="8" textAlign="center">
                                                 <VStack gap="4">
-                                                    <Box
-                                                        fontSize="6xl"
-                                                        style={{
-                                                            animation: "spin 1s linear infinite"
-                                                        }}
-                                                    >
-                                                        🎰
-                                                    </Box>
+                                                    <HStack gap="2" justify="center">
+                                                        <Box
+                                                            fontSize="4xl"
+                                                            style={{
+                                                                animation: "pulse 1s ease-in-out infinite"
+                                                            }}
+                                                        >
+                                                            🔥
+                                                        </Box>
+                                                        <Box
+                                                            fontSize="4xl"
+                                                            style={{
+                                                                animation: "pulse 1s ease-in-out 0.2s infinite"
+                                                            }}
+                                                        >
+                                                            🔥
+                                                        </Box>
+                                                        <Box
+                                                            fontSize="4xl"
+                                                            style={{
+                                                                animation: "pulse 1s ease-in-out 0.4s infinite"
+                                                            }}
+                                                        >
+                                                            🔥
+                                                        </Box>
+                                                    </HStack>
                                                     <Text fontSize="xl" fontWeight="bold">
-                                                        Spinning the wheel...
+                                                        Blockchain is deciding...
                                                     </Text>
                                                     <Text fontSize="sm" color="fg.muted">
-                                                        Fingers crossed! 🤞
+                                                        Your contribution is burning! 🔥
                                                     </Text>
                                                 </VStack>
                                             </Box>
@@ -255,12 +273,12 @@ export const RaffleModal = ({
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Box fontSize="6xl">😢</Box>
+                                                    <Box fontSize="6xl">🔥</Box>
                                                     <Text fontSize="2xl" fontWeight="black" color="orange.500">
                                                         Not This Time!
                                                     </Text>
                                                     <Text fontSize="sm" color="fg.muted" maxW="300px">
-                                                        Better luck next time! The wheel wasn&apos;t in your favor today.
+                                                        Your contribution helped reduce supply! Try again for another chance to win.
                                                     </Text>
                                                 </>
                                             )}
@@ -270,7 +288,7 @@ export const RaffleModal = ({
                                                     colorPalette="orange"
                                                     onClick={handlePlayAgain}
                                                 >
-                                                    🎰 Try Again
+                                                    🔥 Contribute Again
                                                 </Button>
                                                 <Button
                                                     variant="outline"
