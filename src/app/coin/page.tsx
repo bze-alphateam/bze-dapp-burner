@@ -29,6 +29,8 @@ import { truncateDenom } from "@/utils/denom";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { truncateAddress } from "@/utils/address";
 
+const WINNERS_LIST_MAX_LEN = 20;
+
 export default function CoinDetailPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -123,7 +125,7 @@ export default function CoinDetailPage() {
         const formattedTotalWon = prettyAmount(totalWon);
 
         // Format winners
-        const formattedWinners = winners.slice(0, 3).map(w => ({
+        const formattedWinners = winners.sort((a, b) => parseInt(b.index) - parseInt(a.index)).slice(0, WINNERS_LIST_MAX_LEN).map(w => ({
             address: truncateAddress(w.winner),
             amount: prettyAmount(uAmountToBigNumberAmount(w.amount, decimals))
         }));
@@ -396,7 +398,7 @@ export default function CoinDetailPage() {
                                             {raffleData.winners.length > 0 && (
                                                 <Box>
                                                     <Text fontSize="sm" fontWeight="bold" mb="2" color="purple.600" _dark={{ color: "purple.400" }}>
-                                                        🎉 Recent Winners
+                                                        🎉 Last {WINNERS_LIST_MAX_LEN} Winners
                                                     </Text>
                                                     <VStack gap="2" align="stretch">
                                                         {raffleData.winners.map((winner, idx) => (
