@@ -22,57 +22,12 @@ import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useNextBurning } from "@/hooks/useNextBurning";
+import { useRaffles, useRaffleWinners } from "@/hooks/useRaffles";
 import BigNumber from "bignumber.js";
-import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
+import { prettyAmount, uAmountToBigNumberAmount, toBigNumber } from "@/utils/amount";
 import { truncateDenom } from "@/utils/denom";
-
-// Mock raffles for specific coins
-const mockCoinRaffles: Record<string, Array<{
-    id: string;
-    name: string;
-    contributionPrice: string;
-    currentPrize: string;
-    winChance: string; // e.g., "1 in 10"
-    timeRemaining: string;
-    totalWon: string;
-    numWinners: number;
-    winners: Array<{ address: string; amount: string }>;
-}>> = {
-    "ubze": [
-        {
-            id: "raffle-1",
-            name: "BZE Lucky Burn",
-            contributionPrice: "10.00",
-            currentPrize: "500.00",
-            winChance: "1 in 100",
-            timeRemaining: "2 hours",
-            totalWon: "1,250.00",
-            numWinners: 5,
-            winners: [
-                { address: "bze1abc...xyz", amount: "300.00" },
-                { address: "bze1def...uvw", amount: "250.00" },
-                { address: "bze1ghi...rst", amount: "200.00" },
-            ]
-        }
-    ],
-    "uatom": [
-        {
-            id: "raffle-2",
-            name: "ATOM Mega Raffle",
-            contributionPrice: "5.00",
-            currentPrize: "200.00",
-            winChance: "1 in 50",
-            timeRemaining: "45 minutes",
-            totalWon: "580.00",
-            numWinners: 3,
-            winners: [
-                { address: "bze1jkl...opq", amount: "200.00" },
-                { address: "bze1mno...lmn", amount: "180.00" },
-                { address: "bze1pqr...ijk", amount: "200.00" },
-            ]
-        }
-    ],
-};
+import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
+import { truncateAddress } from "@/utils/address";
 
 export default function CoinDetailPage() {
     const searchParams = useSearchParams();
@@ -82,7 +37,6 @@ export default function CoinDetailPage() {
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
     const [isRaffleModalOpen, setIsRaffleModalOpen] = useState(false);
     const [isRaffleInfoModalOpen, setIsRaffleInfoModalOpen] = useState(false);
-    const [selectedRaffle, setSelectedRaffle] = useState<typeof mockCoinRaffles[string][0] | null>(null);
 
     // Get asset from useAssets
     const { getAsset, denomDecimals, isLoading: isLoadingAssets } = useAssets();
@@ -94,6 +48,17 @@ export default function CoinDetailPage() {
 
     // Fetch next burning data
     const { nextBurn, isLoading: isLoadingNextBurn, reload: reloadNextBurning } = useNextBurning();
+
+    // Fetch raffles data
+    const { raffles: allRaffles, currentEpoch, isLoading: isLoadingRaffles } = useRaffles();
+
+    // Find raffle for this coin
+    const coinRaffle = useMemo(() => {
+        return allRaffles.find(r => r.denom === denom);
+    }, [allRaffles, denom]);
+
+    // Fetch raffle winners if there's a raffle for this coin
+    const { winners } = useRaffleWinners(coinRaffle?.denom || '');
 
     // Get next burning info for this specific coin
     const nextCoinBurn = useMemo(() => {
@@ -128,13 +93,57 @@ export default function CoinDetailPage() {
         //eslint-disable-next-line react-hooks/exhaustive-deps
     }, [totalBurned, asset?.denom]);
 
-    const raffles = useMemo(() => {
-        return mockCoinRaffles[denom] || [];
-    }, [denom]);
+    // Format raffle data
+    const raffleData = useMemo(() => {
+        if (!coinRaffle || !asset) return null;
 
-    const handleRaffleClick = (raffle: typeof mockCoinRaffles[string][0]) => {
-        setSelectedRaffle(raffle);
-        setIsRaffleModalOpen(true);
+        const decimals = asset.decimals || 6;
+
+        // Calculate prize (pot * ratio)
+        const potAmount = uAmountToBigNumberAmount(coinRaffle.pot, decimals);
+        const ratio = toBigNumber(coinRaffle.ratio);
+        const prizeAmount = potAmount.multipliedBy(ratio);
+        const formattedPrize = prettyAmount(prizeAmount);
+
+        // Calculate ticket price
+        const ticketPrice = uAmountToBigNumberAmount(coinRaffle.ticket_price, decimals);
+        const formattedTicketPrice = prettyAmount(ticketPrice);
+
+        // Calculate win chance (1 in X out of 1 million)
+        const chances = toBigNumber(coinRaffle.chances);
+        const winChance = chances.isNaN() || !chances.isPositive()
+            ? "N/A"
+            : `1 in ${prettyAmount(toBigNumber(1000000).dividedBy(chances))}`;
+
+        // Calculate time remaining
+        const timeRemaining = formatTimeRemainingFromEpochs(coinRaffle.end_at, currentEpoch);
+
+        // Calculate total won
+        const totalWon = uAmountToBigNumberAmount(coinRaffle.total_won, decimals);
+        const formattedTotalWon = prettyAmount(totalWon);
+
+        // Format winners
+        const formattedWinners = winners.slice(0, 3).map(w => ({
+            address: truncateAddress(w.winner),
+            amount: prettyAmount(uAmountToBigNumberAmount(w.amount, decimals))
+        }));
+
+        return {
+            name: `${asset.ticker} Raffle`,
+            currentPrize: formattedPrize,
+            contributionPrice: formattedTicketPrice,
+            winChance,
+            timeRemaining,
+            totalWon: formattedTotalWon,
+            numWinners: Number(coinRaffle.winners),
+            winners: formattedWinners,
+        };
+    }, [coinRaffle, asset, currentEpoch, winners]);
+
+    const handleRaffleClick = () => {
+        if (raffleData) {
+            setIsRaffleModalOpen(true);
+        }
     };
 
     const onModalClose = useCallback(() => {
@@ -258,7 +267,7 @@ export default function CoinDetailPage() {
                     </Card.Root>
 
                     {/* Burning Raffle Section */}
-                    {raffles.length > 0 && (
+                    {!isLoadingRaffles && raffleData && (
                         <Box>
                             <HStack justify="space-between" mb="4" flexWrap="wrap" gap="2">
                                 <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black">
@@ -274,148 +283,145 @@ export default function CoinDetailPage() {
                                 </Button>
                             </HStack>
                             <VStack gap="4" align="stretch">
-                                {raffles.map((raffle) => (
-                                    <Card.Root
-                                        key={raffle.id}
-                                        bgGradient="to-br"
-                                        gradientFrom="purple.50"
-                                        gradientVia="pink.50"
-                                        gradientTo="orange.50"
-                                        _dark={{
-                                            gradientFrom: "purple.950",
-                                            gradientVia: "pink.950",
-                                            gradientTo: "orange.950",
-                                            borderColor: "purple.500"
-                                        }}
-                                        borderWidth="4px"
-                                        borderColor="purple.400"
-                                        borderRadius="3xl"
-                                        shadow="xl"
-                                    >
-                                        <Card.Body>
-                                            <VStack gap="4" align="stretch">
-                                                {/* Raffle Header */}
-                                                <HStack justify="space-between" flexWrap="wrap" gap="2">
-                                                    <VStack gap="1" align="start">
-                                                        <Text fontSize="xl" fontWeight="black" color="purple.600" _dark={{ color: "purple.300" }}>
-                                                            {raffle.name}
+                                <Card.Root
+                                    bgGradient="to-br"
+                                    gradientFrom="purple.50"
+                                    gradientVia="pink.50"
+                                    gradientTo="orange.50"
+                                    _dark={{
+                                        gradientFrom: "purple.950",
+                                        gradientVia: "pink.950",
+                                        gradientTo: "orange.950",
+                                        borderColor: "purple.500"
+                                    }}
+                                    borderWidth="4px"
+                                    borderColor="purple.400"
+                                    borderRadius="3xl"
+                                    shadow="xl"
+                                >
+                                    <Card.Body>
+                                        <VStack gap="4" align="stretch">
+                                            {/* Raffle Header */}
+                                            <HStack justify="space-between" flexWrap="wrap" gap="2">
+                                                <VStack gap="1" align="start">
+                                                    <Text fontSize="xl" fontWeight="black" color="purple.600" _dark={{ color: "purple.300" }}>
+                                                        {raffleData.name}
+                                                    </Text>
+                                                    <HStack gap="2">
+                                                        <Badge colorPalette="purple" size="sm">
+                                                            ⏰ {raffleData.timeRemaining} left
+                                                        </Badge>
+                                                        <Badge colorPalette="pink" size="sm">
+                                                            {raffleData.winChance} chance
+                                                        </Badge>
+                                                    </HStack>
+                                                </VStack>
+                                                <Button
+                                                    colorPalette="purple"
+                                                    size={{ base: "md", md: "lg" }}
+                                                    fontWeight="bold"
+                                                    onClick={handleRaffleClick}
+                                                >
+                                                    🎫 Join Raffle
+                                                </Button>
+                                            </HStack>
+
+                                            {/* Prize and Stats Grid */}
+                                            <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap="3">
+                                                {/* Current Prize */}
+                                                <Box
+                                                    p="4"
+                                                    bg="white"
+                                                    _dark={{ bg: "gray.800" }}
+                                                    borderRadius="lg"
+                                                    textAlign="center"
+                                                >
+                                                    <VStack gap="1">
+                                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold">
+                                                            🏆 Prize
                                                         </Text>
-                                                        <HStack gap="2">
-                                                            <Badge colorPalette="purple" size="sm">
-                                                                ⏰ {raffle.timeRemaining} left
-                                                            </Badge>
-                                                            <Badge colorPalette="pink" size="sm">
-                                                                {raffle.winChance} chance
-                                                            </Badge>
-                                                        </HStack>
+                                                        <Text fontSize="2xl" fontWeight="black" color="orange.500">
+                                                            {raffleData.currentPrize}
+                                                        </Text>
+                                                        <Text fontSize="xs" color="fg.muted">
+                                                            {asset.ticker}
+                                                        </Text>
                                                     </VStack>
-                                                    <Button
-                                                        colorPalette="purple"
-                                                        size={{ base: "md", md: "lg" }}
-                                                        fontWeight="bold"
-                                                        onClick={() => handleRaffleClick(raffle)}
-                                                    >
-                                                        🎫 Join Raffle
-                                                    </Button>
-                                                </HStack>
+                                                </Box>
 
-                                                {/* Prize and Stats Grid */}
-                                                <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap="3">
-                                                    {/* Current Prize */}
-                                                    <Box
-                                                        p="4"
-                                                        bg="white"
-                                                        _dark={{ bg: "gray.800" }}
-                                                        borderRadius="lg"
-                                                        textAlign="center"
-                                                    >
-                                                        <VStack gap="1">
-                                                            <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                                🏆 WIN UP TO
-                                                            </Text>
-                                                            <Text fontSize="2xl" fontWeight="black" color="orange.500">
-                                                                {raffle.currentPrize}
-                                                            </Text>
-                                                            <Text fontSize="xs" color="fg.muted">
-                                                                {coinData.ticker}
-                                                            </Text>
-                                                        </VStack>
-                                                    </Box>
-
-                                                    {/* Contribution Price */}
-                                                    <Box
-                                                        p="4"
-                                                        bg="white"
-                                                        _dark={{ bg: "gray.800" }}
-                                                        borderRadius="lg"
-                                                        textAlign="center"
-                                                    >
-                                                        <VStack gap="1">
-                                                            <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                                💰 CONTRIBUTION
-                                                            </Text>
-                                                            <Text fontSize="2xl" fontWeight="black" color="purple.500">
-                                                                {raffle.contributionPrice}
-                                                            </Text>
-                                                            <Text fontSize="xs" color="fg.muted">
-                                                                {coinData.ticker}
-                                                            </Text>
-                                                        </VStack>
-                                                    </Box>
-
-                                                    {/* Total Won */}
-                                                    <Box
-                                                        p="4"
-                                                        bg="white"
-                                                        _dark={{ bg: "gray.800" }}
-                                                        borderRadius="lg"
-                                                        textAlign="center"
-                                                    >
-                                                        <VStack gap="1">
-                                                            <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                                💰 TOTAL WON
-                                                            </Text>
-                                                            <Text fontSize="2xl" fontWeight="black" color="green.500">
-                                                                {raffle.totalWon}
-                                                            </Text>
-                                                            <Text fontSize="xs" color="fg.muted">
-                                                                by {raffle.numWinners} winners
-                                                            </Text>
-                                                        </VStack>
-                                                    </Box>
-                                                </Grid>
-
-                                                {/* Winners List */}
-                                                {raffle.winners.length > 0 && (
-                                                    <Box>
-                                                        <Text fontSize="sm" fontWeight="bold" mb="2" color="purple.600" _dark={{ color: "purple.400" }}>
-                                                            🎉 Recent Winners
+                                                {/* Contribution Price */}
+                                                <Box
+                                                    p="4"
+                                                    bg="white"
+                                                    _dark={{ bg: "gray.800" }}
+                                                    borderRadius="lg"
+                                                    textAlign="center"
+                                                >
+                                                    <VStack gap="1">
+                                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold">
+                                                            💰 CONTRIBUTION
                                                         </Text>
-                                                        <VStack gap="2" align="stretch">
-                                                            {raffle.winners.map((winner, idx) => (
-                                                                <HStack
-                                                                    key={idx}
-                                                                    justify="space-between"
-                                                                    p="3"
-                                                                    bg="white"
-                                                                    _dark={{ bg: "gray.800" }}
-                                                                    borderRadius="md"
-                                                                >
-                                                                    <Text fontSize="sm" fontFamily="mono" color="fg.muted">
-                                                                        {winner.address}
-                                                                    </Text>
-                                                                    <Text fontSize="sm" fontWeight="bold" color="green.500">
-                                                                        +{winner.amount} {coinData.ticker}
-                                                                    </Text>
-                                                                </HStack>
-                                                            ))}
-                                                        </VStack>
-                                                    </Box>
-                                                )}
-                                            </VStack>
-                                        </Card.Body>
-                                    </Card.Root>
-                                ))}
+                                                        <Text fontSize="2xl" fontWeight="black" color="purple.500">
+                                                            {raffleData.contributionPrice}
+                                                        </Text>
+                                                        <Text fontSize="xs" color="fg.muted">
+                                                            {asset.ticker}
+                                                        </Text>
+                                                    </VStack>
+                                                </Box>
+
+                                                {/* Total Won */}
+                                                <Box
+                                                    p="4"
+                                                    bg="white"
+                                                    _dark={{ bg: "gray.800" }}
+                                                    borderRadius="lg"
+                                                    textAlign="center"
+                                                >
+                                                    <VStack gap="1">
+                                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold">
+                                                            💰 TOTAL WON
+                                                        </Text>
+                                                        <Text fontSize="2xl" fontWeight="black" color="green.500">
+                                                            {raffleData.totalWon}
+                                                        </Text>
+                                                        <Text fontSize="xs" color="fg.muted">
+                                                            by {raffleData.numWinners} winners
+                                                        </Text>
+                                                    </VStack>
+                                                </Box>
+                                            </Grid>
+
+                                            {/* Winners List */}
+                                            {raffleData.winners.length > 0 && (
+                                                <Box>
+                                                    <Text fontSize="sm" fontWeight="bold" mb="2" color="purple.600" _dark={{ color: "purple.400" }}>
+                                                        🎉 Recent Winners
+                                                    </Text>
+                                                    <VStack gap="2" align="stretch">
+                                                        {raffleData.winners.map((winner, idx) => (
+                                                            <HStack
+                                                                key={idx}
+                                                                justify="space-between"
+                                                                p="3"
+                                                                bg="white"
+                                                                _dark={{ bg: "gray.800" }}
+                                                                borderRadius="md"
+                                                            >
+                                                                <Text fontSize="sm" fontFamily="mono" color="fg.muted">
+                                                                    {winner.address}
+                                                                </Text>
+                                                                <Text fontSize="sm" fontWeight="bold" color="green.500">
+                                                                    +{winner.amount} {asset.ticker}
+                                                                </Text>
+                                                            </HStack>
+                                                        ))}
+                                                    </VStack>
+                                                </Box>
+                                            )}
+                                        </VStack>
+                                    </Card.Body>
+                                </Card.Root>
                             </VStack>
                         </Box>
                     )}
@@ -674,14 +680,14 @@ export default function CoinDetailPage() {
             />
 
             {/* Raffle Modal */}
-            {selectedRaffle && (
+            {raffleData && asset && (
                 <RaffleModal
                     isOpen={isRaffleModalOpen}
                     onClose={() => setIsRaffleModalOpen(false)}
-                    raffleName={selectedRaffle.name}
-                    contributionPrice={selectedRaffle.contributionPrice}
-                    currentPrize={selectedRaffle.currentPrize}
-                    winChance={selectedRaffle.winChance}
+                    raffleName={raffleData.name}
+                    contributionPrice={raffleData.contributionPrice}
+                    currentPrize={raffleData.currentPrize}
+                    winChance={raffleData.winChance}
                     ticker={asset.ticker}
                 />
             )}

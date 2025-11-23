@@ -1,6 +1,12 @@
 import {fromBech32} from "@interchainjs/encoding";
 import {AddressValidationResult} from "@/types/validation";
 import {getChainAddressPrefix} from "@/constants/chain";
+import {stringTruncateFromCenter} from "@/utils/strings";
+
+export const truncateAddress = (address: string): string => {
+    // Show first 6 and last 6 characters
+    return stringTruncateFromCenter(address, 12);
+}
 
 export const validateBech32Address = (address: string, prefix: string): AddressValidationResult => {
     const result = {
