@@ -24,6 +24,7 @@ import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useNextBurning } from "@/hooks/useNextBurning";
 import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
+import { truncateDenom } from "@/utils/denom";
 
 // Mock raffles for specific coins
 const mockCoinRaffles: Record<string, Array<{
@@ -230,8 +231,8 @@ export default function CoinDetailPage() {
                                             <Text fontSize="md" color="fg.muted" fontWeight="medium">
                                                 {asset.name}
                                             </Text>
-                                            <Badge colorPalette="gray" size="sm" variant="subtle">
-                                                {asset.denom}
+                                            <Badge colorPalette="gray" size="sm" variant="subtle" maxW="full" overflow="hidden" textOverflow="ellipsis">
+                                                {truncateDenom(asset.denom)}
                                             </Badge>
                                         </VStack>
                                     </HStack>

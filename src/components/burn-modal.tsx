@@ -6,7 +6,6 @@ import {
     createListCollection,
     Field,
     HStack,
-    Image,
     Input,
     Portal,
     Select,
@@ -15,14 +14,16 @@ import {
     Dialog,
 } from "@chakra-ui/react";
 import { useState, useEffect, useMemo } from "react";
-
-// Mock wallet tokens (this will be replaced with real data later)
-const mockWalletTokens = [
-    { denom: "ubze", name: "BeeZee", ticker: "BZE", balance: "10,000.00", logo: "/images/token.svg" },
-    { denom: "uatom", name: "Cosmos", ticker: "ATOM", balance: "5,000.00", logo: "/images/token.svg" },
-    { denom: "uosmo", name: "Osmosis", ticker: "OSMO", balance: "8,500.00", logo: "/images/token.svg" },
-    { denom: "ujuno", name: "Juno", ticker: "JUNO", balance: "2,300.00", logo: "/images/token.svg" },
-];
+import {useAsset, useAssets} from "@/hooks/useAssets";
+import { useBalances, useBalance } from "@/hooks/useBalances";
+import { TokenLogo } from "@/components/ui/token_logo";
+import { LPTokenLogo } from "@/components/ui/lp_token_logo";
+import { useLiquidityPool } from "@/hooks/useLiquidityPools";
+import {prettyAmount, uAmountToAmount, uAmountToBigNumberAmount} from "@/utils/amount";
+import { isLpDenom } from "@/utils/denom";
+import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
+import BigNumber from "bignumber.js";
+import {Asset} from "@/types/asset";
 
 interface BurnModalProps {
     isOpen: boolean;
@@ -30,11 +31,139 @@ interface BurnModalProps {
     preselectedCoin?: string; // denom of preselected coin
 }
 
+// Component to render select item with logo
+const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) => {
+    const isLP = isLpDenom(asset.denom);
+    const poolId = isLP ? poolIdFromPoolDenom(asset.denom) : '';
+    const { pool } = useLiquidityPool(poolId);
+    const { asset: baseAsset } = useAsset(pool?.base || '');
+    const { asset: quoteAsset } = useAsset(pool?.quote || '');
+
+    return (
+        <HStack gap="2">
+            <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                width={isLP ? "28px" : "auto"}
+            >
+                {isLP && baseAsset && quoteAsset ? (
+                    <LPTokenLogo
+                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
+                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
+                        baseAssetSymbol={baseAsset.ticker}
+                        quoteAssetSymbol={quoteAsset.ticker}
+                        size="20px"
+                    />
+                ) : (
+                    <TokenLogo
+                        src={asset.logo || "/images/token.svg"}
+                        symbol={asset.ticker}
+                        size="20px"
+                    />
+                )}
+            </Box>
+            <Text>{label}</Text>
+        </HStack>
+    );
+};
+
+// Component to display token info with LP support
+const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
+    denom: string;
+    name: string;
+    ticker: string;
+    logo: string;
+    balance: string;
+}) => {
+    const isLP = isLpDenom(denom);
+    const poolId = isLP ? poolIdFromPoolDenom(denom) : '';
+    const { pool } = useLiquidityPool(poolId);
+    const { asset: baseAsset } = useAsset(pool?.base || '');
+    const { asset: quoteAsset } = useAsset(pool?.quote || '');
+
+    return (
+        <VStack gap="3" align="stretch">
+            {/* Token Info */}
+            <Box
+                p="4"
+                bg="bg.muted"
+                borderRadius="lg"
+                borderWidth="1px"
+                borderColor="border"
+            >
+                <HStack gap="3">
+                    <Box
+                        width={isLP ? "56px" : "auto"}
+                        display="flex"
+                        justifyContent="center"
+                        alignItems="center"
+                    >
+                        {isLP && baseAsset && quoteAsset ? (
+                            <LPTokenLogo
+                                baseAssetLogo={baseAsset.logo || "/images/token.svg"}
+                                quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
+                                baseAssetSymbol={baseAsset.ticker}
+                                quoteAssetSymbol={quoteAsset.ticker}
+                                size="48px"
+                            />
+                        ) : (
+                            <TokenLogo
+                                src={logo || "/images/token.svg"}
+                                symbol={ticker}
+                                size="48px"
+                            />
+                        )}
+                    </Box>
+                    <VStack gap="0" align="start" flex="1">
+                        <Text fontSize="lg" fontWeight="bold">{name}</Text>
+                        <Text fontSize="sm" color="fg.muted" fontWeight="medium">
+                            {ticker}
+                        </Text>
+                    </VStack>
+                </HStack>
+            </Box>
+
+            {/* Available Balance - same style as non-preselected */}
+            <Box
+                p="3"
+                bg="orange.50"
+                _dark={{
+                    bg: "gray.800",
+                    borderColor: "orange.500"
+                }}
+                borderRadius="lg"
+                borderWidth="1px"
+                borderColor="orange.300"
+            >
+                <HStack justify="space-between">
+                    <Text fontSize="sm" fontWeight="medium">
+                        Available Balance:
+                    </Text>
+                    <Text fontSize="sm" fontWeight="bold" color="orange.500" _dark={{ color: "orange.300" }}>
+                        {balance} {ticker}
+                    </Text>
+                </HStack>
+            </Box>
+        </VStack>
+    );
+};
+
 export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) => {
     const [selectedCoin, setSelectedCoin] = useState<string>(preselectedCoin || "");
     const [amount, setAmount] = useState("");
     const [amountError, setAmountError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Get assets and balances
+    const { getAsset, denomDecimals } = useAssets();
+    const { getAssetsBalances } = useBalances();
+    const { balance } = useBalance(selectedCoin);
+
+    // Get assets with balances
+    const assetsWithBalances = useMemo(() => {
+        return getAssetsBalances();
+    }, [getAssetsBalances]);
 
     // Reset form when modal opens
     useEffect(() => {
@@ -51,17 +180,34 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
 
     // Create collection for select
     const tokensCollection = createListCollection({
-        items: mockWalletTokens.map(token => ({
-            label: `${token.ticker} - ${token.balance}`,
-            value: token.denom,
-            logo: token.logo,
-            balance: token.balance,
-        }))
+        items: assetsWithBalances.map(asset => {
+            const decimals = denomDecimals(asset.denom);
+            const prettyBalance = prettyAmount(uAmountToBigNumberAmount(asset.amount, decimals));
+
+            return {
+                label: `${asset.ticker} - ${prettyBalance}`,
+                value: asset.denom,
+                balance: asset.amount,
+                prettyBalance,
+                asset: asset,
+            };
+        })
     });
 
-    const selectedTokenData = useMemo(() => {
-        return mockWalletTokens.find(t => t.denom === selectedCoin);
-    }, [selectedCoin]);
+    const selectedAsset = useMemo(() => {
+        return getAsset(selectedCoin);
+    }, [selectedCoin, getAsset]);
+
+    const selectedBalance = useMemo(() => {
+        if (!selectedCoin) return BigNumber(0);
+        return balance.amount;
+    }, [selectedCoin, balance]);
+
+    const prettyBalance = useMemo(() => {
+        if (!selectedAsset) return "0";
+        const decimals = denomDecimals(selectedAsset.denom);
+        return uAmountToAmount(selectedBalance, decimals);
+    }, [selectedAsset, selectedBalance, denomDecimals]);
 
     const handleAmountChange = (value: string) => {
         // Allow only numbers and decimals
@@ -71,8 +217,8 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
     };
 
     const handleMaxClick = () => {
-        if (selectedTokenData) {
-            setAmount(selectedTokenData.balance.replace(/,/g, ''));
+        if (selectedAsset && !selectedBalance.isZero()) {
+            setAmount(prettyBalance);
         }
     };
 
@@ -88,14 +234,18 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
             return;
         }
 
-        if (selectedTokenData) {
-            const balance = parseFloat(selectedTokenData.balance.replace(/,/g, ''));
-            const burnAmount = parseFloat(amount);
+        const burnAmount = BigNumber(amount);
+        if (burnAmount.isNaN()) {
+            setAmountError("Please enter a valid amount");
+            return;
+        }
 
-            if (burnAmount > balance) {
-                setAmountError("Not enough balance!");
-                return;
-            }
+        const decimals = denomDecimals(selectedCoin);
+        const prettyBalanceBN = uAmountToBigNumberAmount(selectedBalance, decimals);
+
+        if (burnAmount.gt(prettyBalanceBN)) {
+            setAmountError("Not enough balance!");
+            return;
         }
 
         // Mock submission
@@ -108,10 +258,11 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
         }, 2000);
     };
 
-    const isFormValid = selectedCoin && amount && parseFloat(amount) > 0 && !amountError;
+    const hasBalance = selectedCoin && !selectedBalance.isZero();
+    const isFormValid = selectedCoin && amount && parseFloat(amount) > 0 && !amountError && hasBalance;
 
     return (
-        <Dialog.Root open={isOpen} onOpenChange={(e) => !isSubmitting && e.open === false && onClose()}>
+        <Dialog.Root open={isOpen} onOpenChange={(e) => !isSubmitting && !e.open && onClose()}>
             <Portal>
                 <Dialog.Backdrop />
                 <Dialog.Positioner>
@@ -123,7 +274,10 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
-                                🔥 Burn Your Tokens 🔥
+                                {preselectedCoin && selectedAsset
+                                    ? `🔥 Burn ${selectedAsset.ticker} 🔥`
+                                    : '🔥 Burn Your Tokens 🔥'
+                                }
                             </Dialog.Title>
                         </Dialog.Header>
 
@@ -173,16 +327,7 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                                         {tokensCollection.items.map((item) => (
                                                             <Select.Item key={item.value} item={item}>
                                                                 <Select.ItemText>
-                                                                    <HStack gap="2">
-                                                                        <Image
-                                                                            src={item.logo}
-                                                                            alt={item.value}
-                                                                            width="20px"
-                                                                            height="20px"
-                                                                            borderRadius="full"
-                                                                        />
-                                                                        <Text>{item.label}</Text>
-                                                                    </HStack>
+                                                                    <SelectItemContent asset={item.asset} label={item.label} />
                                                                 </Select.ItemText>
                                                                 <Select.ItemIndicator />
                                                             </Select.Item>
@@ -195,33 +340,18 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                 )}
 
                                 {/* Show selected token info if preselected */}
-                                {preselectedCoin && selectedTokenData && (
-                                    <Box
-                                        p="3"
-                                        bg="orange.50"
-                                        _dark={{ bg: "orange.950" }}
-                                        borderRadius="lg"
-                                    >
-                                        <HStack gap="3">
-                                            <Image
-                                                src={selectedTokenData.logo}
-                                                alt={selectedTokenData.ticker}
-                                                width="32px"
-                                                height="32px"
-                                                borderRadius="full"
-                                            />
-                                            <VStack gap="0" align="start">
-                                                <Text fontWeight="bold">{selectedTokenData.ticker}</Text>
-                                                <Text fontSize="sm" color="fg.muted">
-                                                    Balance: {selectedTokenData.balance}
-                                                </Text>
-                                            </VStack>
-                                        </HStack>
-                                    </Box>
+                                {preselectedCoin && selectedAsset && (
+                                    <TokenInfoBox
+                                        denom={selectedAsset.denom}
+                                        name={selectedAsset.name}
+                                        ticker={selectedAsset.ticker}
+                                        logo={selectedAsset.logo}
+                                        balance={prettyBalance}
+                                    />
                                 )}
 
                                 {/* Available Balance (if token selected) */}
-                                {selectedTokenData && !preselectedCoin && (
+                                {selectedAsset && !preselectedCoin && (
                                     <Box
                                         p="3"
                                         bg="orange.50"
@@ -238,7 +368,7 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                                 Available Balance:
                                             </Text>
                                             <Text fontSize="sm" fontWeight="bold" color="orange.500" _dark={{ color: "orange.300" }}>
-                                                {selectedTokenData.balance} {selectedTokenData.ticker}
+                                                {prettyBalance} {selectedAsset.ticker}
                                             </Text>
                                         </HStack>
                                     </Box>
@@ -247,31 +377,39 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                 {/* Amount Input */}
                                 <Box>
                                     <Field.Root invalid={!!amountError}>
-                                        <Field.Label fontWeight="semibold">Amount to Burn</Field.Label>
+                                        <Field.Label fontWeight="semibold">
+                                            {selectedAsset
+                                                ? `Amount of ${selectedAsset.ticker} to Burn`
+                                                : 'Amount to Burn'
+                                            }
+                                        </Field.Label>
                                         <HStack gap="2">
                                             <Input
                                                 size="lg"
-                                                placeholder="0.00"
+                                                placeholder={selectedAsset ? `0.00 ${selectedAsset.ticker}` : "0.00"}
                                                 value={amount}
                                                 onChange={(e) => handleAmountChange(e.target.value)}
-                                                disabled={!selectedCoin || isSubmitting}
+                                                disabled={!selectedCoin || isSubmitting || !hasBalance}
                                             />
                                             <Button
                                                 size="lg"
                                                 variant="outline"
                                                 colorPalette="orange"
                                                 onClick={handleMaxClick}
-                                                disabled={!selectedCoin || isSubmitting}
+                                                disabled={!selectedCoin || isSubmitting || !hasBalance}
                                             >
                                                 MAX
                                             </Button>
                                         </HStack>
                                         {amountError && <Field.ErrorText>{amountError}</Field.ErrorText>}
+                                        {selectedCoin && !hasBalance && !amountError && (
+                                            <Field.ErrorText>No balance available for this token</Field.ErrorText>
+                                        )}
                                     </Field.Root>
                                 </Box>
 
                                 {/* Confirmation Preview */}
-                                {isFormValid && selectedTokenData && (
+                                {isFormValid && selectedAsset && (
                                     <Box
                                         p="4"
                                         bg="bg.muted"
@@ -289,7 +427,7 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                                     {amount}
                                                 </Text>
                                                 <Text fontSize="2xl" fontWeight="black">
-                                                    {selectedTokenData.ticker}
+                                                    {selectedAsset.ticker}
                                                 </Text>
                                             </HStack>
                                             <Text fontSize="xs" textAlign="center" color="fg.muted" fontStyle="italic">
