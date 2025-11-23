@@ -13,17 +13,22 @@ import {
     VStack,
     Dialog,
 } from "@chakra-ui/react";
-import { useState, useEffect, useMemo } from "react";
+import {useState, useEffect, useMemo, useCallback} from "react";
 import {useAsset, useAssets} from "@/hooks/useAssets";
 import { useBalances, useBalance } from "@/hooks/useBalances";
 import { TokenLogo } from "@/components/ui/token_logo";
 import { LPTokenLogo } from "@/components/ui/lp_token_logo";
 import { useLiquidityPool } from "@/hooks/useLiquidityPools";
-import {prettyAmount, uAmountToAmount, uAmountToBigNumberAmount} from "@/utils/amount";
+import {amountToUAmount, prettyAmount, toBigNumber, uAmountToAmount, uAmountToBigNumberAmount} from "@/utils/amount";
 import { isLpDenom } from "@/utils/denom";
 import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
 import BigNumber from "bignumber.js";
 import {Asset} from "@/types/asset";
+import {useChain} from "@interchain-kit/react";
+import {getChainName} from "@/constants/chain";
+import {useToast} from "@/hooks/useToast";
+import {bze} from '@bze/bzejs'
+import {useBZETx} from "@/hooks/useTx";
 
 interface BurnModalProps {
     isOpen: boolean;
@@ -159,6 +164,9 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
     const { getAsset, denomDecimals } = useAssets();
     const { getAssetsBalances } = useBalances();
     const { balance } = useBalance(selectedCoin);
+    const { address } = useChain(getChainName());
+    const { toast } = useToast()
+    const { tx } = useBZETx()
 
     // Get assets with balances
     const assetsWithBalances = useMemo(() => {
@@ -222,20 +230,21 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
         }
     };
 
-    const handleBurn = () => {
+    const handleBurn = useCallback(async () => {
+        if (!address) {
+            toast.error("Please connect your wallet to continue");
+
+            return;
+        }
+
         // Validation
         if (!selectedCoin) {
             setAmountError("Please select a token to burn");
             return;
         }
 
-        if (!amount || parseFloat(amount) <= 0) {
-            setAmountError("Please enter a valid amount");
-            return;
-        }
-
         const burnAmount = BigNumber(amount);
-        if (burnAmount.isNaN()) {
+        if (!amount || burnAmount.isNaN() || burnAmount.isZero() || burnAmount.isNegative()) {
             setAmountError("Please enter a valid amount");
             return;
         }
@@ -247,19 +256,23 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
             setAmountError("Not enough balance!");
             return;
         }
+        const uAmount = amountToUAmount(amount, decimals);
+        const {fundBurner} = bze.burner.MessageComposer.withTypeUrl;
+        const msg = fundBurner({
+            creator: address,
+            amount: `${uAmount}${selectedCoin}`
+        })
 
-        // Mock submission
         setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            onClose();
-            // Here you would trigger the actual burn transaction
-            console.log("Burning:", amount, selectedCoin);
-        }, 2000);
-    };
+        await tx([msg]);
 
-    const hasBalance = selectedCoin && !selectedBalance.isZero();
-    const isFormValid = selectedCoin && amount && parseFloat(amount) > 0 && !amountError && hasBalance;
+        setIsSubmitting(false);
+        onClose();
+
+    }, [address, selectedCoin, amount, denomDecimals, selectedBalance, onClose, tx, toast]);
+
+    const hasBalance = useMemo(() => address && selectedCoin && !selectedBalance.isZero(), [address, selectedCoin, selectedBalance]);
+    const isFormValid = useMemo(() => selectedCoin && amount && toBigNumber(amount).gt(0) && !amountError && hasBalance, [selectedCoin, amount, amountError, hasBalance]);
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={(e) => !isSubmitting && !e.open && onClose()}>

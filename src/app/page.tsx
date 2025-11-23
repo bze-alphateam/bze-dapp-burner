@@ -14,7 +14,7 @@ import {
     Separator,
     Button,
 } from "@chakra-ui/react";
-import {useState, useMemo, useEffect} from "react";
+import {useState, useMemo, useEffect, useCallback} from "react";
 import { useRouter } from "next/navigation";
 import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
@@ -272,7 +272,7 @@ export default function BurnerHomePage() {
     const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const { getPoolByLpDenom } = useLiquidityPools();
-    const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
+    const { nextBurn, isLoading: isLoadingNextBurn, reload: reloadNextBurning } = useNextBurning();
 
     // Get last 10 burns
     const lastBurnings = burnHistory.slice(0, 10);
@@ -299,6 +299,11 @@ export default function BurnerHomePage() {
     const handleCoinClick = (denom: string) => {
         router.push(`/coin?coin=${encodeURIComponent(denom)}`);
     };
+
+    const onBurnModalClose = useCallback(() => {
+        setIsBurnModalOpen(false)
+        reloadNextBurning()
+    }, [reloadNextBurning])
 
     return (
         <Box minH="100vh" pb="12">
@@ -765,7 +770,7 @@ export default function BurnerHomePage() {
             {/* Burn Modal */}
             <BurnModal
                 isOpen={isBurnModalOpen}
-                onClose={() => setIsBurnModalOpen(false)}
+                onClose={onBurnModalClose}
             />
         </Box>
     );

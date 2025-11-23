@@ -14,7 +14,7 @@ import {
     Grid,
 } from "@chakra-ui/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import {useCallback, useMemo, useState} from "react";
 import { BurnModal } from "@/components/burn-modal";
 import { RaffleModal } from "@/components/raffle-modal";
 import { RaffleInfoModal } from "@/components/raffle-info-modal";
@@ -93,7 +93,7 @@ export default function CoinDetailPage() {
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory(denom);
 
     // Fetch next burning data
-    const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
+    const { nextBurn, isLoading: isLoadingNextBurn, reload: reloadNextBurning } = useNextBurning();
 
     // Get next burning info for this specific coin
     const nextCoinBurn = useMemo(() => {
@@ -134,6 +134,11 @@ export default function CoinDetailPage() {
         setSelectedRaffle(raffle);
         setIsRaffleModalOpen(true);
     };
+
+    const onModalClose = useCallback(() => {
+        setIsBurnModalOpen(false);
+        reloadNextBurning()
+    }, [reloadNextBurning])
 
     // Show loading state
     if (isLoadingAssets) {
@@ -660,7 +665,7 @@ export default function CoinDetailPage() {
             {/* Burn Modal with preselected coin */}
             <BurnModal
                 isOpen={isBurnModalOpen}
-                onClose={() => setIsBurnModalOpen(false)}
+                onClose={onModalClose}
                 preselectedCoin={denom}
             />
 
