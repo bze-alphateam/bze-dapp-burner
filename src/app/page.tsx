@@ -18,9 +18,9 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
-import { useAssets } from "@/hooks/useAssets";
+import { useAssets, useAsset } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
-import { useLiquidityPools } from "@/hooks/useLiquidityPools";
+import { useLiquidityPools, useLiquidityPool } from "@/hooks/useLiquidityPools";
 import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
 import { getNextBurning } from "@/query/burner";
@@ -28,6 +28,7 @@ import { NextBurn } from "@/types/burn";
 import { TokenLogo } from "@/components/ui/token_logo";
 import { LPTokenLogo } from "@/components/ui/lp_token_logo";
 import { isLpDenom } from "@/utils/denom";
+import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
 
 // Countdown Timer Component with playful design
 const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
@@ -144,20 +145,37 @@ const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
 };
 
 // Pending Burn Token Box Component with playful design
-const PendingBurnBox = ({ token, onClick }: {
-    token: {
-        denom: string;
-        ticker: string;
-        name: string;
-        amount: string;
-        usdValue: string;
-        logo: string;
-        isLP: boolean;
-        baseAsset?: { logo: string; ticker: string };
-        quoteAsset?: { logo: string; ticker: string };
-    },
-    onClick: () => void
+const PendingBurnBox = ({ denom, amount, onClick }: {
+    denom: string;
+    amount: string;
+    onClick: () => void;
 }) => {
+    const { totalUsdValue } = useAssetsValue();
+    const { denomDecimals } = useAssets();
+    const { asset } = useAsset(denom);
+
+    const isLP = isLpDenom(denom);
+    const poolId = isLP ? poolIdFromPoolDenom(denom) : '';
+    const { pool } = useLiquidityPool(poolId);
+    const { asset: baseAsset } = useAsset(pool?.base || '');
+    const { asset: quoteAsset } = useAsset(pool?.quote || '');
+
+    const ticker = asset?.ticker || denom;
+    const name = asset?.name || denom;
+    const logo = asset?.logo || "/images/token.svg";
+
+    const decimals = denomDecimals(denom);
+    const prettyAmountValue = useMemo(() => {
+        const bnAmount = uAmountToBigNumberAmount(amount, decimals);
+        return prettyAmount(bnAmount);
+    }, [amount, decimals]);
+
+    const prettyUsdValue = useMemo(() => {
+        const bnAmount = uAmountToBigNumberAmount(amount, decimals);
+        const usd = totalUsdValue([{ denom, amount: bnAmount }]);
+        return prettyAmount(usd);
+    }, [amount, decimals, denom, totalUsdValue]);
+
     return (
         <Box
             p="5"
@@ -196,33 +214,33 @@ const PendingBurnBox = ({ token, onClick }: {
                     bg="orange.50"
                     _dark={{ bg: "orange.950" }}
                     borderRadius="full"
-                    width={token.isLP ? "80px" : "auto"}
+                    width={isLP ? "80px" : "auto"}
                     display="flex"
                     justifyContent="center"
                     alignItems="center"
                 >
-                    {token.isLP && token.baseAsset && token.quoteAsset ? (
+                    {isLP && baseAsset && quoteAsset ? (
                         <LPTokenLogo
-                            baseAssetLogo={token.baseAsset.logo}
-                            quoteAssetLogo={token.quoteAsset.logo}
-                            baseAssetSymbol={token.baseAsset.ticker}
-                            quoteAssetSymbol={token.quoteAsset.ticker}
+                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
+                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
+                            baseAssetSymbol={baseAsset.ticker}
+                            quoteAssetSymbol={quoteAsset.ticker}
                             size="56px"
                         />
                     ) : (
                         <TokenLogo
-                            src={token.logo}
-                            symbol={token.ticker}
+                            src={logo}
+                            symbol={ticker}
                             size="56px"
                         />
                     )}
                 </Box>
                 <VStack gap="1" align="center">
                     <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                        {token.name}
+                        {name}
                     </Text>
                     <Badge colorPalette="orange" size="md" variant="solid" borderRadius="full">
-                        {token.ticker}
+                        {ticker}
                     </Badge>
                 </VStack>
                 <VStack gap="0" align="center" mt="2">
@@ -230,11 +248,11 @@ const PendingBurnBox = ({ token, onClick }: {
                         Ready to Burn
                     </Text>
                     <Text fontSize="2xl" fontWeight="black" color="orange.500">
-                        {token.amount}
+                        {prettyAmountValue}
                     </Text>
-                    {token.usdValue && (
+                    {prettyUsdValue && (
                         <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                            ≈ ${token.usdValue}
+                            ≈ ${prettyUsdValue}
                         </Text>
                     )}
                 </VStack>
@@ -256,7 +274,7 @@ export default function BurnerHomePage() {
 
     // Fetch burn history
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory();
-    const { getAsset, nativeAsset, denomDecimals } = useAssets();
+    const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const { getPoolByLpDenom } = useLiquidityPools();
 
@@ -298,50 +316,7 @@ export default function BurnerHomePage() {
         return totalUsdValue([{ denom: nativeAsset.denom, amount: totalBzeBurned }]);
     }, [totalBzeBurned, nativeAsset, totalUsdValue]);
 
-
-    // Process pending burns with asset info
-    const pendingBurns = useMemo(() => {
-        if (!nextBurn?.coins) return [];
-
-        return nextBurn.coins.map(coin => {
-            const asset = getAsset(coin.denom);
-            const decimals = denomDecimals(coin.denom);
-            const amount = uAmountToBigNumberAmount(coin.amount, decimals);
-            const usdValue = totalUsdValue([{ denom: coin.denom, amount }]);
-            const isLP = isLpDenom(coin.denom);
-
-            let baseAsset, quoteAsset;
-            if (isLP) {
-                const pool = getPoolByLpDenom(coin.denom);
-                if (pool) {
-                    const base = getAsset(pool.base);
-                    const quote = getAsset(pool.quote);
-                    if (base && quote) {
-                        baseAsset = {
-                            logo: base.logo || "/images/token.svg",
-                            ticker: base.ticker,
-                        };
-                        quoteAsset = {
-                            logo: quote.logo || "/images/token.svg",
-                            ticker: quote.ticker,
-                        };
-                    }
-                }
-            }
-
-            return {
-                denom: coin.denom,
-                ticker: asset?.ticker || coin.denom,
-                name: asset?.name || coin.denom,
-                amount: prettyAmount(amount),
-                usdValue: prettyAmount(usdValue),
-                logo: asset?.logo || "/images/token.svg",
-                isLP,
-                baseAsset,
-                quoteAsset,
-            };
-        });
-    }, [nextBurn, getAsset, denomDecimals, totalUsdValue, getPoolByLpDenom]);
+    const pendingBurns = useMemo(() => nextBurn?.coins || [], [nextBurn]);
 
     const handleCoinClick = (denom: string) => {
         router.push(`/coin?coin=${encodeURIComponent(denom)}`);
@@ -471,9 +446,13 @@ export default function BurnerHomePage() {
                                 }}
                                 gap="5"
                             >
-                                {pendingBurns.map((token, idx) => (
+                                {pendingBurns.map((coin, idx) => (
                                     <GridItem key={idx}>
-                                        <PendingBurnBox token={token} onClick={() => handleCoinClick(token.denom)} />
+                                        <PendingBurnBox
+                                            denom={coin.denom}
+                                            amount={coin.amount}
+                                            onClick={() => handleCoinClick(coin.denom)}
+                                        />
                                     </GridItem>
                                 ))}
                             </Grid>
