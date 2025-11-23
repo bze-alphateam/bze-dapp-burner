@@ -111,7 +111,8 @@ export default function CoinDetailPage() {
             usdValue,
             date: nextBurn.date,
         };
-    }, [nextBurn, denom, denomDecimals, totalUsdValue]);
+        //eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nextBurn, denom]);
 
     // Calculate total burned for this coin
     const totalBurned = useMemo(() => {
@@ -124,7 +125,8 @@ export default function CoinDetailPage() {
     const totalBurnedUsdValue = useMemo(() => {
         if (!asset || totalBurned.isZero()) return BigNumber(0);
         return totalUsdValue([{ denom: asset.denom, amount: totalBurned }]);
-    }, [totalBurned, asset, totalUsdValue]);
+        //eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalBurned, asset?.denom]);
 
     const raffles = useMemo(() => {
         return mockCoinRaffles[denom] || [];
@@ -176,7 +178,7 @@ export default function CoinDetailPage() {
     return (
         <Box minH="100vh" pb="12">
             <Container py={{ base: '6', md: '10' }}>
-                <VStack gap="8" align="stretch">
+                <VStack gap="8" align="stretch" transition="opacity 0.2s ease-in-out">
                     {/* Back Button */}
                     <Box>
                         <Button
@@ -432,6 +434,7 @@ export default function CoinDetailPage() {
                         borderColor="orange.300"
                         borderRadius="2xl"
                         shadow="lg"
+                        transition="all 0.3s ease-in-out"
                     >
                         <Card.Body>
                             <VStack gap="2" align="center" py="4">
@@ -478,6 +481,7 @@ export default function CoinDetailPage() {
                             borderColor="orange.400"
                             borderRadius="2xl"
                             shadow="lg"
+                            transition="all 0.3s ease-in-out"
                         >
                             <Card.Body>
                                 <VStack gap="4" align="stretch">
