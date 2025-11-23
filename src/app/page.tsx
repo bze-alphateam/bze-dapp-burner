@@ -14,17 +14,16 @@ import {
     Separator,
     Button,
 } from "@chakra-ui/react";
-import { useEffect, useState, useMemo } from "react";
+import {useState, useMemo, useEffect} from "react";
 import { useRouter } from "next/navigation";
 import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets, useAsset } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useLiquidityPools, useLiquidityPool } from "@/hooks/useLiquidityPools";
+import { useNextBurning } from "@/hooks/useNextBurning";
 import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
-import { getNextBurning } from "@/query/burner";
-import { NextBurn } from "@/types/burn";
 import { TokenLogo } from "@/components/ui/token_logo";
 import { LPTokenLogo } from "@/components/ui/lp_token_logo";
 import { isLpDenom } from "@/utils/denom";
@@ -265,10 +264,6 @@ export default function BurnerHomePage() {
     // Burn modal state
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
 
-    // Next burning state
-    const [nextBurn, setNextBurn] = useState<NextBurn | null>(null);
-    const [isLoadingNextBurn, setIsLoadingNextBurn] = useState(true);
-
     // Router for navigation
     const router = useRouter();
 
@@ -277,24 +272,7 @@ export default function BurnerHomePage() {
     const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const { getPoolByLpDenom } = useLiquidityPools();
-
-    // Fetch next burning data
-    useEffect(() => {
-        const fetchNextBurning = async () => {
-            setIsLoadingNextBurn(true);
-            try {
-                const data = await getNextBurning();
-                setNextBurn(data || null);
-            } catch (error) {
-                console.error('Failed to fetch next burning:', error);
-                setNextBurn(null);
-            } finally {
-                setIsLoadingNextBurn(false);
-            }
-        };
-
-        fetchNextBurning();
-    }, []);
+    const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
 
     // Get last 10 burns
     const lastBurnings = burnHistory.slice(0, 10);

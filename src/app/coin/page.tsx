@@ -21,8 +21,9 @@ import { RaffleInfoModal } from "@/components/raffle-info-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
+import { useNextBurning } from "@/hooks/useNextBurning";
 import BigNumber from "bignumber.js";
-import { prettyAmount } from "@/utils/amount";
+import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
 
 // Mock raffles for specific coins
 const mockCoinRaffles: Record<string, Array<{
@@ -83,12 +84,33 @@ export default function CoinDetailPage() {
     const [selectedRaffle, setSelectedRaffle] = useState<typeof mockCoinRaffles[string][0] | null>(null);
 
     // Get asset from useAssets
-    const { getAsset, isLoading: isLoadingAssets } = useAssets();
+    const { getAsset, denomDecimals, isLoading: isLoadingAssets } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const asset = getAsset(denom);
 
     // Fetch burn history for this specific coin
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory(denom);
+
+    // Fetch next burning data
+    const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
+
+    // Get next burning info for this specific coin
+    const nextCoinBurn = useMemo(() => {
+        if (!nextBurn?.coins) return null;
+
+        const coin = nextBurn.coins.find(c => c.denom === denom);
+        if (!coin) return null;
+
+        const decimals = denomDecimals(denom);
+        const amount = uAmountToBigNumberAmount(coin.amount, decimals);
+        const usdValue = totalUsdValue([{ denom, amount }]);
+
+        return {
+            amount,
+            usdValue,
+            date: nextBurn.date,
+        };
+    }, [nextBurn, denom, denomDecimals, totalUsdValue]);
 
     // Calculate total burned for this coin
     const totalBurned = useMemo(() => {
@@ -432,6 +454,63 @@ export default function CoinDetailPage() {
                             </VStack>
                         </Card.Body>
                     </Card.Root>
+
+                    {/* Next Burning Section */}
+                    {!isLoadingNextBurn && nextCoinBurn && (
+                        <Card.Root
+                            bgGradient="to-br"
+                            gradientFrom="yellow.50"
+                            gradientVia="orange.100"
+                            gradientTo="red.100"
+                            _dark={{
+                                gradientFrom: "orange.950",
+                                gradientVia: "orange.900",
+                                gradientTo: "red.950",
+                                borderColor: "orange.500"
+                            }}
+                            borderWidth="3px"
+                            borderColor="orange.400"
+                            borderRadius="2xl"
+                            shadow="lg"
+                        >
+                            <Card.Body>
+                                <VStack gap="4" align="stretch">
+                                    <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="black" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase" textAlign="center">
+                                        🔥 Next Burning
+                                    </Text>
+
+                                    <VStack gap="2" align="center">
+                                        <Text fontSize="sm" color="fg.muted" fontWeight="medium">
+                                            Ready to burn
+                                        </Text>
+                                        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="black" color="orange.500">
+                                            {prettyAmount(nextCoinBurn.amount)} {asset.ticker}
+                                        </Text>
+                                        {nextCoinBurn.usdValue.gt(0) && (
+                                            <Text fontSize={{ base: "sm", md: "md" }} color="fg.muted" fontWeight="medium">
+                                                ≈ ${prettyAmount(nextCoinBurn.usdValue)}
+                                            </Text>
+                                        )}
+                                    </VStack>
+
+                                    <Box textAlign="center">
+                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold" mb="1">
+                                            SCHEDULED FOR
+                                        </Text>
+                                        <Badge colorPalette="orange" size="md" variant="solid">
+                                            {nextCoinBurn.date.toLocaleString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
+                                        </Badge>
+                                    </Box>
+                                </VStack>
+                            </Card.Body>
+                        </Card.Root>
+                    )}
 
                     {/* Burn History */}
                     <Box>
