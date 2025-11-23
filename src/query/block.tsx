@@ -46,7 +46,6 @@ export async function getBlockDetailsByHeight(height: BigNumber): Promise<GetBlo
 
 export async function getBlockTimeByHeight(height: BigNumber): Promise<Date | undefined> {
     const details = await getBlockDetailsByHeight(height);
-    console.log("block time details: ", height.toString(), details);
     if (details.block_id === undefined) {
         if (height.toFixed(0) in FAILOVER_BLOCKTIMES) {
             return new Date(FAILOVER_BLOCKTIMES[height.toFixed(0)]);

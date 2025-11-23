@@ -26,6 +26,9 @@ import {LiquidityPoolData} from "@/types/liquidity_pool";
 import {getLiquidityPools} from "@/query/liquidity_pools";
 import {calculatePoolPrice, createPoolId, poolIdFromPoolDenom} from "@/utils/liquidity_pool";
 import {EXCLUDED_MARKETS} from "@/constants/market";
+import { NextBurn} from "@/types/burn";
+import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
+import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
 
 export interface AssetsContextType {
     //assets
@@ -64,6 +67,12 @@ export interface AssetsContextType {
 
     connectionType: ConnectionType;
     updateConnectionType: (conn: ConnectionType) => void;
+
+    nextBurn: NextBurn | undefined;
+    updateNextBurn: () => Promise<void>;
+
+    burnHistory: BurnedCoinsSDKType[];
+    updateBurnHistory: () => Promise<void>;
 }
 
 export const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
@@ -99,8 +108,22 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [connectionType, setConnectionType] = useState<ConnectionType>(CONNECTION_TYPE_NONE);
     const [poolsMap, setPoolsMap] = useState<Map<string, LiquidityPoolSDKType>>(new Map())
     const [poolsDataMap, setPoolsDataMap] = useState<Map<string, LiquidityPoolData>>(new Map())
+    const [nextBurn, setNextBurn] = useState<NextBurn | undefined>(undefined)
+    const [burnHistory, setBurnHistory] = useState<BurnedCoinsSDKType[]>([]);
 
     const {address} = useChain(getChainName());
+
+    const doUpdateNextBurn = useCallback((next?: NextBurn) => {
+        if (!next) return;
+        setNextBurn(next)
+    }, [])
+
+    const doUpdateBurnHistory = useCallback((history: BurnedCoinsSDKType[]) => {
+        if (history.length === 0) {
+            return;
+        }
+        setBurnHistory(history)
+    }, [])
 
     const doUpdateAssets = useCallback((newAssets: ChainAssets) => {
         setAssetsMap(newAssets.assets);
@@ -302,17 +325,48 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
 
         doUpdateLiquidityPools(pools)
     }, [doUpdateLiquidityPools])
+    const updateNextBurn = useCallback(async () => {
+        try {
+            const data = await getNextBurning();
+            doUpdateNextBurn(data)
+        } catch (error) {
+            console.error('Failed to fetch next burning:', error);
+            setNextBurn(undefined);
+        }
+    }, [doUpdateNextBurn])
+    const updateBurnHistory = useCallback(async () => {
+        const response = await getAllBurnedCoins();
+        doUpdateBurnHistory(response.burnedCoins)
+    }, [doUpdateBurnHistory])
 
     useEffect(() => {
         setIsLoading(true)
         //initial context loading
         const init = async () => {
-            const [assets, markets, tickers, epochsInfo, pools] = await Promise.all([getChainAssets(), getMarkets(), getAllTickers(), getEpochsInfo(), getLiquidityPools()])
+            const [
+                assets,
+                markets,
+                tickers,
+                epochsInfo,
+                pools,
+                nextBurn,
+                burnHistory
+            ] = await Promise.all([
+                getChainAssets(),
+                getMarkets(),
+                getAllTickers(),
+                getEpochsInfo(),
+                getLiquidityPools(),
+                getNextBurning(),
+                getAllBurnedCoins()
+            ])
             doUpdateAssets(assets)
             doUpdateMarkets(markets)
             doUpdateMarketsData(tickers)
             doUpdateEpochs(epochsInfo.epochs)
             doUpdateLiquidityPools(pools)
+            doUpdateNextBurn(nextBurn)
+            doUpdateBurnHistory(burnHistory.burnedCoins)
 
             setIsLoading(false)
         }
@@ -368,6 +422,10 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             updateLiquidityPools,
             poolsMap,
             poolsDataMap,
+            nextBurn,
+            updateNextBurn,
+            burnHistory,
+            updateBurnHistory
         }}>
             {children}
         </AssetsContext.Provider>

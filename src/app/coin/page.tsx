@@ -43,7 +43,7 @@ export default function CoinDetailPage() {
     // Get asset from useAssets
     const { getAsset, denomDecimals, isLoading: isLoadingAssets } = useAssets();
     const { totalUsdValue } = useAssetsValue();
-    const asset = getAsset(denom);
+    const asset = useMemo(() => getAsset(denom), [getAsset, denom]);
 
     // Fetch burn history for this specific coin
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory(denom);
@@ -142,11 +142,11 @@ export default function CoinDetailPage() {
         };
     }, [coinRaffle, asset, currentEpoch, winners]);
 
-    const handleRaffleClick = () => {
+    const handleRaffleClick = useCallback(() => {
         if (raffleData) {
             setIsRaffleModalOpen(true);
         }
-    };
+    }, [raffleData]);
 
     const onModalClose = useCallback(() => {
         setIsBurnModalOpen(false);
