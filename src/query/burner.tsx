@@ -4,9 +4,14 @@ import {QueryAllBurnedCoinsResponseSDKType} from "@bze/bzejs/bze/burner/query";
 import {getFromLocalStorage, setInLocalStorage} from "@/storage/storage";
 import {bze} from '@bze/bzejs'
 import {PageRequest} from "@bze/bzejs/cosmos/base/query/v1beta1/pagination";
+import {getBurnerModuleAddress} from "@/query/module";
+import {NextBurn} from "@/types/burn";
+import {getAddressBalances} from "@/query/bank";
+import {getPeriodicWeekEpochEndTime} from "@/query/epoch";
+import {toBigNumber} from "@/utils/amount";
 
 const BURNED_KEY = 'burner:all_burned_coins';
-
+const BURN_EPOCH_COUNT = 4;
 const LOCAL_CACHE_TTL = 60 * 60 * 4; //4 hours
 
 const {fromPartial: QueryAllBurnedCoinsRequestFromPartial} = bze.burner.QueryAllBurnedCoinsRequest;
@@ -61,4 +66,38 @@ export async function getAllBurnedCoins(): Promise<QueryAllBurnedCoinsResponseSD
             burnedCoins: [],
         };
     }
+}
+
+
+export async function getNextBurning(): Promise<NextBurn | undefined> {
+    const address = await getBurnerModuleAddress()
+    if (address === '') {
+        return undefined;
+    }
+
+    const balances = await getAddressBalances(address);
+    if (balances.length === 0) {
+        return undefined;
+    }
+
+    const timeFromEpoch = await getBurningTimeFromEpoch();
+
+    if (!timeFromEpoch) {
+        return undefined;
+    }
+
+    return {
+        coins: balances,
+        date: timeFromEpoch,
+    }
+}
+
+async function getBurningTimeFromEpoch(): Promise<Date|undefined> {
+    const params = await getBurnerParams();
+    let defaultBurningMod = BURN_EPOCH_COUNT;
+    if (params) {
+        defaultBurningMod = toBigNumber(params.periodic_burning_weeks).toNumber();
+    }
+
+    return await getPeriodicWeekEpochEndTime(defaultBurningMod);
 }

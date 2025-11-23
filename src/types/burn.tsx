@@ -8,3 +8,11 @@ export interface BurnHistoryItem {
     timestamp: string;
     date?: Date;
 }
+
+export interface NextBurn {
+    coins: {
+        denom: string;
+        amount: string;
+    }[],
+    date: Date;
+}

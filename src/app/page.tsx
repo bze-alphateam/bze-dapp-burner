@@ -8,7 +8,6 @@ import {
     HStack,
     VStack,
     Text,
-    Image,
     Card,
     Table,
     Badge,
@@ -21,104 +20,74 @@ import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
+import { useLiquidityPools } from "@/hooks/useLiquidityPools";
 import BigNumber from "bignumber.js";
-import { prettyAmount } from "@/utils/amount";
-
-// Mock data for pending burns
-const mockPendingBurns = [
-    { denom: "ubze", name: "BeeZee", ticker: "BZE", amount: "1,234.56", usdValue: "6,172.80", logo: "/images/token.svg", isLP: false },
-    { denom: "uatom", name: "Cosmos", ticker: "ATOM", amount: "567.89", usdValue: "4,543.12", logo: "/images/token.svg", isLP: false },
-    { denom: "lp-bze-atom", name: "BZE/ATOM LP", ticker: "BZE/ATOM", amount: "890.12", usdValue: "712.10", logo: "/images/token.svg", logo2: "/images/token.svg", isLP: true },
-];
-
-// Token Logo Component - supports single token or LP pair
-const TokenLogo = ({
-    logo,
-    logo2,
-    isLP,
-    size = "48px",
-    alt = "Token"
-}: {
-    logo: string;
-    logo2?: string;
-    isLP?: boolean;
-    size?: string;
-    alt?: string;
-}) => {
-    if (isLP && logo2) {
-        // LP tokens show two overlapping logos
-        return (
-            <Box position="relative" width={size} height={size}>
-                <Image
-                    src={logo}
-                    alt={alt}
-                    width={size}
-                    height={size}
-                    borderRadius="full"
-                    position="absolute"
-                    left="0"
-                    top="0"
-                    borderWidth="2px"
-                    borderColor="bg.panel"
-                    zIndex="1"
-                />
-                <Image
-                    src={logo2}
-                    alt={alt}
-                    width={size}
-                    height={size}
-                    borderRadius="full"
-                    position="absolute"
-                    left="30%"
-                    top="0"
-                    borderWidth="2px"
-                    borderColor="bg.panel"
-                    zIndex="2"
-                />
-            </Box>
-        );
-    }
-
-    // Single token logo
-    return (
-        <Image
-            src={logo}
-            alt={alt}
-            width={size}
-            height={size}
-            borderRadius="full"
-        />
-    );
-};
+import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
+import { getNextBurning } from "@/query/burner";
+import { NextBurn } from "@/types/burn";
+import { TokenLogo } from "@/components/ui/token_logo";
+import { LPTokenLogo } from "@/components/ui/lp_token_logo";
+import { isLpDenom } from "@/utils/denom";
 
 // Countdown Timer Component with playful design
-const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
-    const [timeLeft, setTimeLeft] = useState(targetTime);
+const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
+    const [timeLeft, setTimeLeft] = useState(0);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-        }, 1000);
+        const calculateTimeLeft = () => {
+            const now = new Date();
+            const diff = Math.floor((targetDate.getTime() - now.getTime()) / 1000);
+            setTimeLeft(Math.max(0, diff));
+        };
+
+        // Calculate immediately
+        calculateTimeLeft();
+
+        // Update every second
+        const interval = setInterval(calculateTimeLeft, 1000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [targetDate]);
 
-    const hours = Math.floor(timeLeft / 3600);
+    const days = Math.floor(timeLeft / 86400);
+    const hours = Math.floor((timeLeft % 86400) / 3600);
     const minutes = Math.floor((timeLeft % 3600) / 60);
     const seconds = timeLeft % 60;
 
     return (
         <VStack gap="2">
-            <HStack gap="2" fontFamily="mono" fontSize={{ base: "2xl", md: "3xl" }} fontWeight="black">
+            <HStack gap="2" fontFamily="mono" fontSize={{ base: "xl", md: "2xl" }} fontWeight="black" flexWrap="wrap" justify="center">
+                {days > 0 && (
+                    <>
+                        <Box
+                            px={{ base: "3", md: "4" }}
+                            py={{ base: "2", md: "3" }}
+                            bgGradient="to-br"
+                            gradientFrom="orange.400"
+                            gradientTo="red.500"
+                            borderRadius="2xl"
+                            color="white"
+                            minW={{ base: "50px", md: "60px" }}
+                            textAlign="center"
+                            shadow="xl"
+                            transform="rotate(-2deg)"
+                            _hover={{ transform: "rotate(0deg) scale(1.05)" }}
+                            transition="all 0.3s"
+                        >
+                            {String(days).padStart(2, '0')}
+                        </Box>
+                        <Text color="orange.500" fontSize={{ base: "2xl", md: "3xl" }}>🔥</Text>
+                    </>
+                )}
                 <Box
-                    px={{ base: "4", md: "5" }}
-                    py={{ base: "3", md: "4" }}
+                    px={{ base: "3", md: "4" }}
+                    py={{ base: "2", md: "3" }}
                     bgGradient="to-br"
                     gradientFrom="orange.400"
                     gradientTo="red.500"
                     borderRadius="2xl"
                     color="white"
-                    minW={{ base: "60px", md: "70px" }}
+                    minW={{ base: "50px", md: "60px" }}
                     textAlign="center"
                     shadow="xl"
                     transform="rotate(-2deg)"
@@ -127,16 +96,16 @@ const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
                 >
                     {String(hours).padStart(2, '0')}
                 </Box>
-                <Text color="orange.500" fontSize={{ base: "3xl", md: "4xl" }}>🔥</Text>
+                <Text color="orange.500" fontSize={{ base: "2xl", md: "3xl" }}>🔥</Text>
                 <Box
-                    px={{ base: "4", md: "5" }}
-                    py={{ base: "3", md: "4" }}
+                    px={{ base: "3", md: "4" }}
+                    py={{ base: "2", md: "3" }}
                     bgGradient="to-br"
                     gradientFrom="orange.400"
                     gradientTo="red.500"
                     borderRadius="2xl"
                     color="white"
-                    minW={{ base: "60px", md: "70px" }}
+                    minW={{ base: "50px", md: "60px" }}
                     textAlign="center"
                     shadow="xl"
                     transform="rotate(2deg)"
@@ -145,16 +114,16 @@ const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
                 >
                     {String(minutes).padStart(2, '0')}
                 </Box>
-                <Text color="orange.500" fontSize={{ base: "3xl", md: "4xl" }}>🔥</Text>
+                <Text color="orange.500" fontSize={{ base: "2xl", md: "3xl" }}>🔥</Text>
                 <Box
-                    px={{ base: "4", md: "5" }}
-                    py={{ base: "3", md: "4" }}
+                    px={{ base: "3", md: "4" }}
+                    py={{ base: "2", md: "3" }}
                     bgGradient="to-br"
                     gradientFrom="orange.400"
                     gradientTo="red.500"
                     borderRadius="2xl"
                     color="white"
-                    minW={{ base: "60px", md: "70px" }}
+                    minW={{ base: "50px", md: "60px" }}
                     textAlign="center"
                     shadow="xl"
                     transform="rotate(-2deg)"
@@ -164,7 +133,8 @@ const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
                     {String(seconds).padStart(2, '0')}
                 </Box>
             </HStack>
-            <HStack gap="8" fontSize="xs" fontWeight="bold" color="fg.muted" textTransform="uppercase">
+            <HStack gap={{ base: "4", md: "8" }} fontSize="xs" fontWeight="bold" color="fg.muted" textTransform="uppercase" flexWrap="wrap" justify="center">
+                {days > 0 && <Text>Days</Text>}
                 <Text>Hours</Text>
                 <Text>Minutes</Text>
                 <Text>Seconds</Text>
@@ -174,7 +144,20 @@ const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
 };
 
 // Pending Burn Token Box Component with playful design
-const PendingBurnBox = ({ token, onClick }: { token: typeof mockPendingBurns[0], onClick: () => void }) => {
+const PendingBurnBox = ({ token, onClick }: {
+    token: {
+        denom: string;
+        ticker: string;
+        name: string;
+        amount: string;
+        usdValue: string;
+        logo: string;
+        isLP: boolean;
+        baseAsset?: { logo: string; ticker: string };
+        quoteAsset?: { logo: string; ticker: string };
+    },
+    onClick: () => void
+}) => {
     return (
         <Box
             p="5"
@@ -218,13 +201,21 @@ const PendingBurnBox = ({ token, onClick }: { token: typeof mockPendingBurns[0],
                     justifyContent="center"
                     alignItems="center"
                 >
-                    <TokenLogo
-                        logo={token.logo}
-                        logo2={token.logo2}
-                        isLP={token.isLP}
-                        size="56px"
-                        alt={token.ticker}
-                    />
+                    {token.isLP && token.baseAsset && token.quoteAsset ? (
+                        <LPTokenLogo
+                            baseAssetLogo={token.baseAsset.logo}
+                            quoteAssetLogo={token.quoteAsset.logo}
+                            baseAssetSymbol={token.baseAsset.ticker}
+                            quoteAssetSymbol={token.quoteAsset.ticker}
+                            size="56px"
+                        />
+                    ) : (
+                        <TokenLogo
+                            src={token.logo}
+                            symbol={token.ticker}
+                            size="56px"
+                        />
+                    )}
                 </Box>
                 <VStack gap="1" align="center">
                     <Text fontSize="sm" color="fg.muted" fontWeight="medium">
@@ -253,19 +244,39 @@ const PendingBurnBox = ({ token, onClick }: { token: typeof mockPendingBurns[0],
 };
 
 export default function BurnerHomePage() {
-    // Mock countdown: 2 hours from now
-    const mockCountdownSeconds = 7200;
-
     // Burn modal state
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
+
+    // Next burning state
+    const [nextBurn, setNextBurn] = useState<NextBurn | null>(null);
+    const [isLoadingNextBurn, setIsLoadingNextBurn] = useState(true);
 
     // Router for navigation
     const router = useRouter();
 
     // Fetch burn history
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory();
-    const { getAsset, nativeAsset } = useAssets();
+    const { getAsset, nativeAsset, denomDecimals } = useAssets();
     const { totalUsdValue } = useAssetsValue();
+    const { getPoolByLpDenom } = useLiquidityPools();
+
+    // Fetch next burning data
+    useEffect(() => {
+        const fetchNextBurning = async () => {
+            setIsLoadingNextBurn(true);
+            try {
+                const data = await getNextBurning();
+                setNextBurn(data || null);
+            } catch (error) {
+                console.error('Failed to fetch next burning:', error);
+                setNextBurn(null);
+            } finally {
+                setIsLoadingNextBurn(false);
+            }
+        };
+
+        fetchNextBurning();
+    }, []);
 
     // Get last 10 burns
     const lastBurnings = burnHistory.slice(0, 10);
@@ -286,6 +297,51 @@ export default function BurnerHomePage() {
 
         return totalUsdValue([{ denom: nativeAsset.denom, amount: totalBzeBurned }]);
     }, [totalBzeBurned, nativeAsset, totalUsdValue]);
+
+
+    // Process pending burns with asset info
+    const pendingBurns = useMemo(() => {
+        if (!nextBurn?.coins) return [];
+
+        return nextBurn.coins.map(coin => {
+            const asset = getAsset(coin.denom);
+            const decimals = denomDecimals(coin.denom);
+            const amount = uAmountToBigNumberAmount(coin.amount, decimals);
+            const usdValue = totalUsdValue([{ denom: coin.denom, amount }]);
+            const isLP = isLpDenom(coin.denom);
+
+            let baseAsset, quoteAsset;
+            if (isLP) {
+                const pool = getPoolByLpDenom(coin.denom);
+                if (pool) {
+                    const base = getAsset(pool.base);
+                    const quote = getAsset(pool.quote);
+                    if (base && quote) {
+                        baseAsset = {
+                            logo: base.logo || "/images/token.svg",
+                            ticker: base.ticker,
+                        };
+                        quoteAsset = {
+                            logo: quote.logo || "/images/token.svg",
+                            ticker: quote.ticker,
+                        };
+                    }
+                }
+            }
+
+            return {
+                denom: coin.denom,
+                ticker: asset?.ticker || coin.denom,
+                name: asset?.name || coin.denom,
+                amount: prettyAmount(amount),
+                usdValue: prettyAmount(usdValue),
+                logo: asset?.logo || "/images/token.svg",
+                isLP,
+                baseAsset,
+                quoteAsset,
+            };
+        });
+    }, [nextBurn, getAsset, denomDecimals, totalUsdValue, getPoolByLpDenom]);
 
     const handleCoinClick = (denom: string) => {
         router.push(`/coin?coin=${encodeURIComponent(denom)}`);
@@ -375,36 +431,54 @@ export default function BurnerHomePage() {
                                         Get ready... tokens are about to sizzle!
                                     </Text>
                                 </VStack>
-                                <CountdownTimer targetTime={mockCountdownSeconds} />
+                                {isLoadingNextBurn ? (
+                                    <Text fontSize="md" color="fg.muted">
+                                        Loading...
+                                    </Text>
+                                ) : nextBurn?.date ? (
+                                    <CountdownTimer targetDate={nextBurn.date} />
+                                ) : (
+                                    <Text fontSize="md" color="fg.muted">
+                                        No burning scheduled
+                                    </Text>
+                                )}
                             </VStack>
                         </Card.Body>
                     </Card.Root>
 
                     {/* Pending Burns Section */}
-                    <Box>
-                        <HStack justify="space-between" align="center" mb="5">
-                            <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black">
-                                🎯 Ready to Burn
+                    {isLoadingNextBurn ? (
+                        <Box textAlign="center" py="8">
+                            <Text fontSize="md" color="fg.muted">
+                                Loading pending burns...
                             </Text>
-                            <Badge colorPalette="orange" size="lg" variant="solid" borderRadius="full">
-                                {mockPendingBurns.length} tokens
-                            </Badge>
-                        </HStack>
-                        <Grid
-                            templateColumns={{
-                                base: "repeat(2, 1fr)",
-                                md: "repeat(3, 1fr)",
-                                lg: "repeat(4, 1fr)",
-                            }}
-                            gap="5"
-                        >
-                            {mockPendingBurns.map((token, idx) => (
-                                <GridItem key={idx}>
-                                    <PendingBurnBox token={token} onClick={() => handleCoinClick(token.denom)} />
-                                </GridItem>
-                            ))}
-                        </Grid>
-                    </Box>
+                        </Box>
+                    ) : pendingBurns.length > 0 ? (
+                        <Box>
+                            <HStack justify="space-between" align="center" mb="5">
+                                <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black">
+                                    🎯 Ready to Burn
+                                </Text>
+                                <Badge colorPalette="orange" size="lg" variant="solid" borderRadius="full">
+                                    {pendingBurns.length} tokens
+                                </Badge>
+                            </HStack>
+                            <Grid
+                                templateColumns={{
+                                    base: "repeat(2, 1fr)",
+                                    md: "repeat(3, 1fr)",
+                                    lg: "repeat(4, 1fr)",
+                                }}
+                                gap="5"
+                            >
+                                {pendingBurns.map((token, idx) => (
+                                    <GridItem key={idx}>
+                                        <PendingBurnBox token={token} onClick={() => handleCoinClick(token.denom)} />
+                                    </GridItem>
+                                ))}
+                            </Grid>
+                        </Box>
+                    ) : null}
 
                     {/* Total BZE Burned with subtle design */}
                     <Card.Root
@@ -509,9 +583,22 @@ export default function BurnerHomePage() {
                                                 const ticker = asset?.ticker || burn.denom;
                                                 const name = asset?.name || burn.denom;
                                                 const logo = asset?.logo || "/images/token.svg";
-                                                const isLP = burn.denom.startsWith("ulp_");
+                                                const isLP = isLpDenom(burn.denom);
                                                 const formattedAmount = prettyAmount(burn.amount);
                                                 const formattedUsdValue = prettyAmount(burn.usdValue);
+
+                                                let baseAsset, quoteAsset;
+                                                if (isLP) {
+                                                    const pool = getPoolByLpDenom(burn.denom);
+                                                    if (pool) {
+                                                        const base = getAsset(pool.base);
+                                                        const quote = getAsset(pool.quote);
+                                                        if (base && quote) {
+                                                            baseAsset = base;
+                                                            quoteAsset = quote;
+                                                        }
+                                                    }
+                                                }
 
                                                 return (
                                                     <Table.Row
@@ -536,12 +623,21 @@ export default function BurnerHomePage() {
                                                                     justifyContent="center"
                                                                     alignItems="center"
                                                                 >
-                                                                    <TokenLogo
-                                                                        logo={logo}
-                                                                        isLP={isLP}
-                                                                        size="32px"
-                                                                        alt={ticker}
-                                                                    />
+                                                                    {isLP && baseAsset && quoteAsset ? (
+                                                                        <LPTokenLogo
+                                                                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
+                                                                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
+                                                                            baseAssetSymbol={baseAsset.ticker}
+                                                                            quoteAssetSymbol={quoteAsset.ticker}
+                                                                            size="32px"
+                                                                        />
+                                                                    ) : (
+                                                                        <TokenLogo
+                                                                            src={logo}
+                                                                            symbol={ticker}
+                                                                            size="32px"
+                                                                        />
+                                                                    )}
                                                                 </Box>
                                                                 <Text fontWeight="bold" fontSize="md">{ticker}</Text>
                                                             </HStack>
@@ -606,9 +702,22 @@ export default function BurnerHomePage() {
                                             const ticker = asset?.ticker || burn.denom;
                                             const name = asset?.name || burn.denom;
                                             const logo = asset?.logo || "/images/token.svg";
-                                            const isLP = burn.denom.startsWith("ulp_");
+                                            const isLP = isLpDenom(burn.denom);
                                             const formattedAmount = prettyAmount(burn.amount);
                                             const formattedUsdValue = prettyAmount(burn.usdValue);
+
+                                            let baseAsset, quoteAsset;
+                                            if (isLP) {
+                                                const pool = getPoolByLpDenom(burn.denom);
+                                                if (pool) {
+                                                    const base = getAsset(pool.base);
+                                                    const quote = getAsset(pool.quote);
+                                                    if (base && quote) {
+                                                        baseAsset = base;
+                                                        quoteAsset = quote;
+                                                    }
+                                                }
+                                            }
 
                                             return (
                                                 <Box
@@ -636,12 +745,21 @@ export default function BurnerHomePage() {
                                                                 justifyContent="center"
                                                                 alignItems="center"
                                                             >
-                                                                <TokenLogo
-                                                                    logo={logo}
-                                                                    isLP={isLP}
-                                                                    size="40px"
-                                                                    alt={ticker}
-                                                                />
+                                                                {isLP && baseAsset && quoteAsset ? (
+                                                                    <LPTokenLogo
+                                                                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
+                                                                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
+                                                                        baseAssetSymbol={baseAsset.ticker}
+                                                                        quoteAssetSymbol={quoteAsset.ticker}
+                                                                        size="40px"
+                                                                    />
+                                                                ) : (
+                                                                    <TokenLogo
+                                                                        src={logo}
+                                                                        symbol={ticker}
+                                                                        size="40px"
+                                                                    />
+                                                                )}
                                                             </Box>
                                                             <VStack gap="0" align="start">
                                                                 <Text fontWeight="bold" fontSize="md">
