@@ -67,6 +67,7 @@ const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
                             gradientTo="red.500"
                             borderRadius="2xl"
                             color="white"
+                            _light={{ color: "gray.900" }}
                             minW={{ base: "50px", md: "60px" }}
                             textAlign="center"
                             shadow="xl"
@@ -87,6 +88,7 @@ const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
                     gradientTo="red.500"
                     borderRadius="2xl"
                     color="white"
+                    _light={{ color: "gray.900" }}
                     minW={{ base: "50px", md: "60px" }}
                     textAlign="center"
                     shadow="xl"
@@ -105,6 +107,7 @@ const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
                     gradientTo="red.500"
                     borderRadius="2xl"
                     color="white"
+                    _light={{ color: "gray.900" }}
                     minW={{ base: "50px", md: "60px" }}
                     textAlign="center"
                     shadow="xl"
@@ -123,6 +126,7 @@ const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
                     gradientTo="red.500"
                     borderRadius="2xl"
                     color="white"
+                    _light={{ color: "gray.900" }}
                     minW={{ base: "50px", md: "60px" }}
                     textAlign="center"
                     shadow="xl"
