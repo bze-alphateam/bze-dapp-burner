@@ -17,6 +17,10 @@ export async function getBurnerModuleAddress(): Promise<string> {
     return getHardcodedBurnerAddress();
 }
 
+export async function getRaffleModuleAddress(): Promise<string> {
+    return getModuleAddress('raffle');
+}
+
 export async function getModuleAddress(module: string): Promise<string> {
     try {
         const cacheKey = `${MODULE_ADDRESS_KEY}${module}`;

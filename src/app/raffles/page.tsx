@@ -6,71 +6,202 @@ import {
     VStack,
     HStack,
     Text,
-    Image,
     Card,
     Badge,
     Grid,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { RaffleInfo } from "@/components/raffle-info";
+import { useRaffles } from "@/hooks/useRaffles";
+import { useAsset } from "@/hooks/useAssets";
+import { TokenLogo } from "@/components/ui/token_logo";
+import {uAmountToBigNumberAmount, prettyAmount, toBigNumber} from "@/utils/amount";
+import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
+import { RaffleSDKType } from "@bze/bzejs/bze/burner/raffle";
+import BigNumber from "bignumber.js";
 
-// Mock coin data
-const mockCoins: Record<string, {
-    denom: string;
-    name: string;
-    ticker: string;
-    price: string;
-    logo: string;
-}> = {
-    "ubze": { denom: "ubze", name: "BeeZee", ticker: "BZE", price: "$5.00", logo: "/images/token.svg" },
-    "uatom": { denom: "uatom", name: "Cosmos", ticker: "ATOM", price: "$8.00", logo: "/images/token.svg" },
-};
+interface RaffleCardProps {
+    raffle: RaffleSDKType;
+    currentEpoch: BigNumber;
+    onClick: () => void;
+}
 
-// Mock raffles for specific coins
-const mockCoinRaffles: Record<string, Array<{
-    id: string;
-    name: string;
-    contributionPrice: string;
-    currentPrize: string;
-    winChance: string;
-    timeRemaining: string;
-}>> = {
-    "ubze": [
-        {
-            id: "raffle-1",
-            name: "BZE Lucky Burn",
-            contributionPrice: "10.00",
-            currentPrize: "500.00",
-            winChance: "1 in 100",
-            timeRemaining: "2 hours",
+function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
+    const { asset } = useAsset(raffle.denom);
+
+    const ticker = asset?.ticker || raffle.denom;
+    const name = asset?.name || raffle.denom;
+    const logo = asset?.logo || "/images/token.svg";
+    const decimals = asset?.decimals || 6;
+
+    const formattedPrize = useMemo(() => {
+        const potAmount = uAmountToBigNumberAmount(raffle.pot, decimals);
+        const ratio = toBigNumber(raffle.ratio);
+        const prizeAmount = potAmount.multipliedBy(ratio);
+        return prettyAmount(prizeAmount);
+    }, [raffle.pot, raffle.ratio, decimals]);
+
+    const formattedTicketPrice = useMemo(() => {
+        const bnAmount = uAmountToBigNumberAmount(raffle.ticket_price, decimals);
+        return prettyAmount(bnAmount);
+    }, [raffle.ticket_price, decimals]);
+
+    const winChance = useMemo(() => {
+        const chances = toBigNumber(raffle.chances);
+        if (chances.isNaN() || !chances.isPositive()) {
+            return "N/A";
         }
-    ],
-    "uatom": [
-        {
-            id: "raffle-2",
-            name: "ATOM Mega Raffle",
-            contributionPrice: "5.00",
-            currentPrize: "200.00",
-            winChance: "1 in 50",
-            timeRemaining: "45 minutes",
-        }
-    ],
-};
+        // chances represents the number of chances out of 1 million
+        const oneMillion = toBigNumber(1000000);
+        const odds = oneMillion.dividedBy(chances);
+        return `1 in ${prettyAmount(odds)}`;
+    }, [raffle.chances]);
+
+    const timeRemaining = useMemo(() => {
+        // end_at is an epoch number (each epoch = 1 hour)
+        return formatTimeRemainingFromEpochs(raffle.end_at, currentEpoch);
+    }, [raffle.end_at, currentEpoch]);
+
+    const raffleName = useMemo(() => {
+        return `${ticker} Raffle`;
+    }, [ticker]);
+
+    return (
+        <Card.Root
+            bgGradient="to-br"
+            gradientFrom="purple.50"
+            gradientVia="pink.50"
+            gradientTo="orange.50"
+            _dark={{
+                gradientFrom: "purple.950",
+                gradientVia: "pink.950",
+                gradientTo: "orange.950",
+                borderColor: "purple.500"
+            }}
+            borderWidth="3px"
+            borderColor="purple.400"
+            borderRadius="3xl"
+            shadow="lg"
+            cursor="pointer"
+            onClick={onClick}
+            transition="all 0.3s"
+            _hover={{
+                transform: "translateY(-4px) rotate(1deg)",
+                shadow: "2xl",
+                borderColor: "purple.500",
+            }}
+        >
+            <Card.Body>
+                <VStack gap="4" align="stretch">
+                    {/* Coin Info Header */}
+                    <HStack gap="3">
+                        <Box
+                            p="2"
+                            bg="white"
+                            _dark={{ bg: "gray.900" }}
+                            borderRadius="full"
+                        >
+                            <TokenLogo
+                                src={logo}
+                                symbol={ticker}
+                                size="40px"
+                            />
+                        </Box>
+                        <VStack gap="0" align="start" flex="1">
+                            <Text fontSize="lg" fontWeight="black" color="purple.600" _dark={{ color: "purple.300" }}>
+                                {raffleName}
+                            </Text>
+                            <HStack gap="1">
+                                <Text fontSize="sm" fontWeight="bold">
+                                    {ticker}
+                                </Text>
+                                <Text fontSize="xs" color="fg.muted">
+                                    • {name}
+                                </Text>
+                            </HStack>
+                        </VStack>
+                    </HStack>
+
+                    {/* Time and Chance Badges */}
+                    <HStack gap="2" flexWrap="wrap">
+                        <Badge colorPalette="purple" size="sm">
+                            ⏰ {timeRemaining}
+                        </Badge>
+                        <Badge colorPalette="pink" size="sm">
+                            {winChance}
+                        </Badge>
+                    </HStack>
+
+                    {/* Prize and Contribution Info */}
+                    <Grid templateColumns="1fr 1fr" gap="3">
+                        {/* Current Prize */}
+                        <Box
+                            p="3"
+                            bg="white"
+                            _dark={{ bg: "gray.800" }}
+                            borderRadius="lg"
+                            textAlign="center"
+                        >
+                            <VStack gap="1">
+                                <Text fontSize="xs" color="fg.muted" fontWeight="bold">
+                                    🏆 PRIZE
+                                </Text>
+                                <Text fontSize="xl" fontWeight="black" color="orange.500">
+                                    {formattedPrize}
+                                </Text>
+                                <Text fontSize="xs" color="fg.muted">
+                                    {ticker}
+                                </Text>
+                            </VStack>
+                        </Box>
+
+                        {/* Contribution Price */}
+                        <Box
+                            p="3"
+                            bg="white"
+                            _dark={{ bg: "gray.800" }}
+                            borderRadius="lg"
+                            textAlign="center"
+                        >
+                            <VStack gap="1">
+                                <Text fontSize="xs" color="fg.muted" fontWeight="bold">
+                                    💰 CONTRIBUTION
+                                </Text>
+                                <Text fontSize="xl" fontWeight="black" color="purple.500">
+                                    {formattedTicketPrice}
+                                </Text>
+                                <Text fontSize="xs" color="fg.muted">
+                                    {ticker}
+                                </Text>
+                            </VStack>
+                        </Box>
+                    </Grid>
+
+                    {/* Click to view CTA */}
+                    <Box
+                        p="2"
+                        bg="purple.100"
+                        _dark={{ bg: "purple.900/30" }}
+                        borderRadius="md"
+                        textAlign="center"
+                    >
+                        <Text fontSize="xs" fontWeight="bold" color="purple.700" _dark={{ color: "purple.300" }}>
+                            Click to contribute →
+                        </Text>
+                    </Box>
+                </VStack>
+            </Card.Body>
+        </Card.Root>
+    );
+}
 
 export default function RafflesPage() {
     const router = useRouter();
-
-    // Aggregate all raffles with their coin info
-    const allRaffles = Object.entries(mockCoinRaffles).flatMap(([denom, raffles]) =>
-        raffles.map(raffle => ({
-            ...raffle,
-            denom,
-            coinData: mockCoins[denom],
-        }))
-    );
+    const { raffles, currentEpoch, isLoading } = useRaffles();
 
     const handleRaffleClick = (denom: string) => {
-        router.push(`/coin?denom=${denom}`);
+        router.push(`/coin?coin=${denom}`);
     };
 
     return (
@@ -116,140 +247,24 @@ export default function RafflesPage() {
                     </Card.Root>
 
                     {/* Raffles Grid */}
-                    {allRaffles.length > 0 ? (
+                    {isLoading ? (
+                        <Box textAlign="center" py="12">
+                            <Text fontSize="md" color="fg.muted">
+                                Loading raffles...
+                            </Text>
+                        </Box>
+                    ) : raffles.length > 0 ? (
                         <Grid
                             templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }}
                             gap="6"
                         >
-                            {allRaffles.map((raffle) => (
-                                <Card.Root
-                                    key={raffle.id}
-                                    bgGradient="to-br"
-                                    gradientFrom="purple.50"
-                                    gradientVia="pink.50"
-                                    gradientTo="orange.50"
-                                    _dark={{
-                                        gradientFrom: "purple.950",
-                                        gradientVia: "pink.950",
-                                        gradientTo: "orange.950",
-                                        borderColor: "purple.500"
-                                    }}
-                                    borderWidth="3px"
-                                    borderColor="purple.400"
-                                    borderRadius="3xl"
-                                    shadow="lg"
-                                    cursor="pointer"
+                            {raffles.map((raffle, idx) => (
+                                <RaffleCard
+                                    key={`${raffle.denom}-${idx}`}
+                                    raffle={raffle}
+                                    currentEpoch={currentEpoch}
                                     onClick={() => handleRaffleClick(raffle.denom)}
-                                    transition="all 0.3s"
-                                    _hover={{
-                                        transform: "translateY(-4px) rotate(1deg)",
-                                        shadow: "2xl",
-                                        borderColor: "purple.500",
-                                    }}
-                                >
-                                    <Card.Body>
-                                        <VStack gap="4" align="stretch">
-                                            {/* Coin Info Header */}
-                                            <HStack gap="3">
-                                                <Box
-                                                    p="2"
-                                                    bg="white"
-                                                    _dark={{ bg: "gray.900" }}
-                                                    borderRadius="full"
-                                                >
-                                                    <Image
-                                                        src={raffle.coinData.logo}
-                                                        alt={raffle.coinData.ticker}
-                                                        width="40px"
-                                                        height="40px"
-                                                        borderRadius="full"
-                                                    />
-                                                </Box>
-                                                <VStack gap="0" align="start" flex="1">
-                                                    <Text fontSize="lg" fontWeight="black" color="purple.600" _dark={{ color: "purple.300" }}>
-                                                        {raffle.name}
-                                                    </Text>
-                                                    <HStack gap="1">
-                                                        <Text fontSize="sm" fontWeight="bold">
-                                                            {raffle.coinData.ticker}
-                                                        </Text>
-                                                        <Text fontSize="xs" color="fg.muted">
-                                                            • {raffle.coinData.price}
-                                                        </Text>
-                                                    </HStack>
-                                                </VStack>
-                                            </HStack>
-
-                                            {/* Time and Chance Badges */}
-                                            <HStack gap="2" flexWrap="wrap">
-                                                <Badge colorPalette="purple" size="sm">
-                                                    ⏰ {raffle.timeRemaining}
-                                                </Badge>
-                                                <Badge colorPalette="pink" size="sm">
-                                                    {raffle.winChance}
-                                                </Badge>
-                                            </HStack>
-
-                                            {/* Prize and Contribution Info */}
-                                            <Grid templateColumns="1fr 1fr" gap="3">
-                                                {/* Current Prize */}
-                                                <Box
-                                                    p="3"
-                                                    bg="white"
-                                                    _dark={{ bg: "gray.800" }}
-                                                    borderRadius="lg"
-                                                    textAlign="center"
-                                                >
-                                                    <VStack gap="1">
-                                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                            🏆 PRIZE
-                                                        </Text>
-                                                        <Text fontSize="xl" fontWeight="black" color="orange.500">
-                                                            {raffle.currentPrize}
-                                                        </Text>
-                                                        <Text fontSize="xs" color="fg.muted">
-                                                            {raffle.coinData.ticker}
-                                                        </Text>
-                                                    </VStack>
-                                                </Box>
-
-                                                {/* Contribution Price */}
-                                                <Box
-                                                    p="3"
-                                                    bg="white"
-                                                    _dark={{ bg: "gray.800" }}
-                                                    borderRadius="lg"
-                                                    textAlign="center"
-                                                >
-                                                    <VStack gap="1">
-                                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold">
-                                                            💰 CONTRIBUTION
-                                                        </Text>
-                                                        <Text fontSize="xl" fontWeight="black" color="purple.500">
-                                                            {raffle.contributionPrice}
-                                                        </Text>
-                                                        <Text fontSize="xs" color="fg.muted">
-                                                            {raffle.coinData.ticker}
-                                                        </Text>
-                                                    </VStack>
-                                                </Box>
-                                            </Grid>
-
-                                            {/* Click to view CTA */}
-                                            <Box
-                                                p="2"
-                                                bg="purple.100"
-                                                _dark={{ bg: "purple.900/30" }}
-                                                borderRadius="md"
-                                                textAlign="center"
-                                            >
-                                                <Text fontSize="xs" fontWeight="bold" color="purple.700" _dark={{ color: "purple.300" }}>
-                                                    Click to join →
-                                                </Text>
-                                            </Box>
-                                        </VStack>
-                                    </Card.Body>
-                                </Card.Root>
+                                />
                             ))}
                         </Grid>
                     ) : (

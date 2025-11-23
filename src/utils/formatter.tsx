@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import {toBigNumber} from "@/utils/amount";
 
 export const formatUsdAmount = (priceNum: BigNumber): string => {
     const price = priceNum.toString();
@@ -87,4 +88,51 @@ export function formatDate(date: Date): string {
         second: '2-digit',
         hour12: false,
     }).format(date);
+}
+
+export function formatTimeRemaining(endTime: Date | string | number): string {
+    const now = new Date();
+    const end = typeof endTime === 'string' || typeof endTime === 'number'
+        ? new Date(endTime)
+        : endTime;
+
+    const diffMs = end.getTime() - now.getTime();
+
+    if (diffMs <= 0) {
+        return 'Ended';
+    }
+
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+        return `${diffDays}d ${diffHours % 24}h`;
+    } else if (diffHours > 0) {
+        return `${diffHours}h ${diffMinutes % 60}m`;
+    } else  {
+        return `${diffMinutes}m`;
+    }
+}
+
+export function formatTimeRemainingFromEpochs(endEpoch: bigint | number | BigNumber, currentEpoch: bigint | number | BigNumber): string {
+    // Each epoch is 1 hour
+    const endBN = toBigNumber(endEpoch);
+    const currentBN = toBigNumber(currentEpoch);
+    const epochDiff = endBN.minus(currentBN);
+
+    if (epochDiff.lte(0)) {
+        return 'Ended';
+    }
+
+    const hoursRemaining = epochDiff.toNumber();
+    const daysRemaining = Math.floor(hoursRemaining / 24);
+    const hoursRemainder = hoursRemaining % 24;
+
+    if (daysRemaining > 0) {
+        return `${daysRemaining}d ${hoursRemainder}h`;
+    } else {
+        return `${hoursRemaining}h`;
+    }
 }
