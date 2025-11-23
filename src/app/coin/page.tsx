@@ -689,6 +689,7 @@ export default function CoinDetailPage() {
                     currentPrize={raffleData.currentPrize}
                     winChance={raffleData.winChance}
                     ticker={asset.ticker}
+                    denom={denom}
                 />
             )}
 

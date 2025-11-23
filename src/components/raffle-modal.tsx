@@ -11,7 +11,16 @@ import {
     VStack,
     Dialog,
 } from "@chakra-ui/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useChain } from "@interchain-kit/react";
+import { getChainName } from "@/constants/chain";
+import { useToast } from "@/hooks/useToast";
+import { bze } from '@bze/bzejs';
+import { useBZETx } from "@/hooks/useTx";
+import { useBalance } from "@/hooks/useBalances";
+import { useAsset } from "@/hooks/useAssets";
+import { toBigNumber, uAmountToBigNumberAmount } from "@/utils/amount";
+import BigNumber from "bignumber.js";
 
 interface RaffleModalProps {
     isOpen: boolean;
@@ -21,6 +30,7 @@ interface RaffleModalProps {
     currentPrize: string;
     winChance: string; // e.g., "1 in 10"
     ticker: string;
+    denom: string;
 }
 
 export const RaffleModal = ({
@@ -31,58 +41,93 @@ export const RaffleModal = ({
     currentPrize,
     winChance,
     ticker,
+    denom,
 }: RaffleModalProps) => {
     const [numContributions, setNumContributions] = useState("1");
-    const [isSpinning, setIsSpinning] = useState(false);
-    const [showResult, setShowResult] = useState(false);
-    const [didWin, setDidWin] = useState(false);
-    const [wonAmount, setWonAmount] = useState("0");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [contributionsError, setContributionsError] = useState("");
+
+    const { address } = useChain(getChainName());
+    const { toast } = useToast();
+    const { tx } = useBZETx();
+    const { balance } = useBalance(denom);
+    const { asset } = useAsset(denom);
 
     // Reset state when modal opens
     useEffect(() => {
         if (isOpen) {
             setNumContributions("1");
-            setIsSpinning(false);
-            setShowResult(false);
-            setDidWin(false);
-            setWonAmount("0");
+            setIsSubmitting(false);
+            setContributionsError("");
         }
     }, [isOpen]);
 
-    const handleBuyContributions = () => {
-        setIsSpinning(true);
+    // Calculate total cost for tickets
+    const totalCost = useMemo(() => {
+        const tickets = toBigNumber(numContributions);
+        const price = toBigNumber(contributionPrice);
+        if (tickets.isNaN() || price.isNaN()) return BigNumber(0);
+        return tickets.multipliedBy(price);
+    }, [numContributions, contributionPrice]);
 
-        // Simulate spinning for 3 seconds
-        setTimeout(() => {
-            setIsSpinning(false);
+    // Check if user has enough balance
+    const userBalance = useMemo(() => {
+        if (!asset) return BigNumber(0);
+        return uAmountToBigNumberAmount(balance.amount, asset.decimals || 6);
+    }, [balance, asset]);
 
-            // Mock result - 30% chance to win for demo purposes
-            const won = Math.random() < 0.3;
-            setDidWin(won);
+    const hasEnoughBalance = useMemo(() => {
+        return userBalance.gte(totalCost);
+    }, [userBalance, totalCost]);
 
-            if (won) {
-                // Calculate won amount (mock calculation)
-                const contributions = parseInt(numContributions) || 1;
-                const mockWonAmount = (parseFloat(currentPrize.replace(/,/g, '')) * 0.1 * contributions).toFixed(2);
-                setWonAmount(mockWonAmount);
-            }
-
-            setShowResult(true);
-        }, 3000);
+    const handleContributionsChange = (value: string) => {
+        const sanitized = value.replace(/[^0-9]/g, '');
+        setNumContributions(sanitized);
+        setContributionsError("");
     };
 
-    const handlePlayAgain = () => {
-        setShowResult(false);
-        setNumContributions("1");
-    };
+    const handleJoinRaffle = useCallback(async () => {
+        if (!address) {
+            toast.error("Please connect your wallet to continue");
+            return;
+        }
+
+        // Validation
+        const tickets = toBigNumber(numContributions);
+        if (!numContributions || tickets.isNaN() || tickets.lte(0)) {
+            setContributionsError("Please enter a valid number of contributions");
+            return;
+        }
+
+        if (!hasEnoughBalance) {
+            setContributionsError(`Not enough balance! You need ${totalCost.toFixed(2)} ${ticker}`);
+            return;
+        }
+
+        const { joinRaffle } = bze.burner.MessageComposer.withTypeUrl;
+        const msg = joinRaffle({
+            creator: address,
+            denom: denom,
+            tickets: BigInt(numContributions)
+        });
+
+        setIsSubmitting(true);
+        await tx([msg]);
+        setIsSubmitting(false);
+        onClose();
+
+    }, [address, numContributions, hasEnoughBalance, totalCost, ticker, denom, tx, onClose, toast]);
 
     const handleClose = () => {
-        if (!isSpinning) {
+        if (!isSubmitting) {
             onClose();
         }
     };
 
-    const totalCost = (parseFloat(contributionPrice) * (parseInt(numContributions) || 1)).toFixed(2);
+    const isFormValid = useMemo(() => {
+        const tickets = toBigNumber(numContributions);
+        return address && !tickets.isNaN() && tickets.gt(0) && hasEnoughBalance && !contributionsError;
+    }, [address, numContributions, hasEnoughBalance, contributionsError]);
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && handleClose()}>
@@ -103,207 +148,139 @@ export const RaffleModal = ({
 
                         <Dialog.Body>
                             <VStack gap="5" align="stretch">
-                                {!showResult ? (
-                                    <>
-                                        {/* Prize Display */}
-                                        <Box
-                                            p="5"
-                                            bgGradient="to-br"
-                                            gradientFrom="yellow.100"
-                                            gradientTo="orange.100"
-                                            _dark={{
-                                                gradientFrom: "yellow.900/30",
-                                                gradientTo: "orange.900/30",
-                                            }}
-                                            borderRadius="xl"
-                                            borderWidth="2px"
-                                            borderColor="orange.400"
-                                            textAlign="center"
-                                        >
-                                            <VStack gap="2">
-                                                <Text fontSize="sm" fontWeight="bold" color="orange.600" _dark={{ color: "orange.400" }}>
-                                                    🏆 Current Prize
-                                                </Text>
-                                                <Text fontSize="3xl" fontWeight="black" color="orange.500">
-                                                    {currentPrize} {ticker}
-                                                </Text>
-                                                <Text fontSize="xs" color="fg.muted">
-                                                    Your chance: {winChance}
-                                                </Text>
-                                            </VStack>
-                                        </Box>
+                                {/* Prize Display */}
+                                <Box
+                                    p="5"
+                                    bgGradient="to-br"
+                                    gradientFrom="yellow.100"
+                                    gradientTo="orange.100"
+                                    _dark={{
+                                        gradientFrom: "yellow.900/30",
+                                        gradientTo: "orange.900/30",
+                                    }}
+                                    borderRadius="xl"
+                                    borderWidth="2px"
+                                    borderColor="orange.400"
+                                    textAlign="center"
+                                >
+                                    <VStack gap="2">
+                                        <Text fontSize="sm" fontWeight="bold" color="orange.600" _dark={{ color: "orange.400" }}>
+                                            🏆 Current Prize
+                                        </Text>
+                                        <Text fontSize="3xl" fontWeight="black" color="orange.500">
+                                            {currentPrize} {ticker}
+                                        </Text>
+                                        <Text fontSize="xs" color="fg.muted">
+                                            Your chance: {winChance}
+                                        </Text>
+                                    </VStack>
+                                </Box>
 
-                                        {/* Spinning Wheel or Contribution Selection */}
-                                        {!isSpinning ? (
-                                            <>
-                                                {/* Number of Contributions */}
-                                                <Box>
-                                                    <Field.Root>
-                                                        <Field.Label fontWeight="semibold">Number of Contributions</Field.Label>
-                                                        <Input
-                                                            size="lg"
-                                                            type="number"
-                                                            min="1"
-                                                            value={numContributions}
-                                                            onChange={(e) => setNumContributions(e.target.value)}
-                                                            placeholder="1"
-                                                        />
-                                                        <Field.HelperText fontSize="xs" color="fg.muted">
-                                                            {contributionPrice} {ticker} per contribution
-                                                        </Field.HelperText>
-                                                    </Field.Root>
-                                                </Box>
-
-                                                {/* Total Cost */}
-                                                <Box
-                                                    p="3"
-                                                    bg="orange.50"
-                                                    _dark={{ bg: "gray.800", borderColor: "orange.500" }}
-                                                    borderRadius="lg"
-                                                    borderWidth="1px"
-                                                    borderColor="orange.300"
-                                                >
-                                                    <HStack justify="space-between">
-                                                        <Text fontSize="sm" fontWeight="medium">
-                                                            Total Cost:
-                                                        </Text>
-                                                        <Text fontSize="lg" fontWeight="bold" color="orange.500">
-                                                            {totalCost} {ticker}
-                                                        </Text>
-                                                    </HStack>
-                                                </Box>
-
-                                                {/* Warning */}
-                                                <Box
-                                                    p="3"
-                                                    bg="yellow.50"
-                                                    _dark={{ bg: "gray.800", borderColor: "yellow.500" }}
-                                                    borderRadius="lg"
-                                                    borderWidth="1px"
-                                                    borderColor="yellow.300"
-                                                >
-                                                    <HStack gap="2">
-                                                        <Text fontSize="lg">⚠️</Text>
-                                                        <Text fontSize="xs" color="fg.muted">
-                                                            Remember: More contributions increase your chances, but don&apos;t guarantee you&apos;ll win!
-                                                        </Text>
-                                                    </HStack>
-                                                </Box>
-
-                                                {/* Buy Button */}
-                                                <Button
-                                                    size="lg"
-                                                    colorPalette="orange"
-                                                    onClick={handleBuyContributions}
-                                                    fontWeight="black"
-                                                >
-                                                    💰 Make Contribution & Spin!
-                                                </Button>
-                                            </>
-                                        ) : (
-                                            /* Blockchain Processing Animation */
-                                            <Box py="8" textAlign="center">
-                                                <VStack gap="4">
-                                                    <HStack gap="2" justify="center">
-                                                        <Box
-                                                            fontSize="4xl"
-                                                            style={{
-                                                                animation: "pulse 1s ease-in-out infinite"
-                                                            }}
-                                                        >
-                                                            🔥
-                                                        </Box>
-                                                        <Box
-                                                            fontSize="4xl"
-                                                            style={{
-                                                                animation: "pulse 1s ease-in-out 0.2s infinite"
-                                                            }}
-                                                        >
-                                                            🔥
-                                                        </Box>
-                                                        <Box
-                                                            fontSize="4xl"
-                                                            style={{
-                                                                animation: "pulse 1s ease-in-out 0.4s infinite"
-                                                            }}
-                                                        >
-                                                            🔥
-                                                        </Box>
-                                                    </HStack>
-                                                    <Text fontSize="xl" fontWeight="bold">
-                                                        Blockchain is deciding...
-                                                    </Text>
-                                                    <Text fontSize="sm" color="fg.muted">
-                                                        Your contribution is burning! 🔥
-                                                    </Text>
-                                                </VStack>
-                                            </Box>
-                                        )}
-                                    </>
-                                ) : (
-                                    /* Result Display */
-                                    <Box py="6" textAlign="center">
-                                        <VStack gap="4">
-                                            {didWin ? (
-                                                <>
-                                                    <Box fontSize="6xl">🎉</Box>
-                                                    <Text fontSize="2xl" fontWeight="black" color="green.500">
-                                                        YOU WON!
-                                                    </Text>
-                                                    <Box
-                                                        p="4"
-                                                        bg="green.50"
-                                                        _dark={{ bg: "green.900/30" }}
-                                                        borderRadius="xl"
-                                                        borderWidth="2px"
-                                                        borderColor="green.400"
-                                                    >
-                                                        <VStack gap="1">
-                                                            <Text fontSize="sm" color="fg.muted">
-                                                                You won
-                                                            </Text>
-                                                            <Text fontSize="3xl" fontWeight="black" color="green.500">
-                                                                {wonAmount} {ticker}
-                                                            </Text>
-                                                        </VStack>
-                                                    </Box>
-                                                    <Text fontSize="sm" color="fg.muted">
-                                                        Congratulations! 🎊
-                                                    </Text>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Box fontSize="6xl">🔥</Box>
-                                                    <Text fontSize="2xl" fontWeight="black" color="orange.500">
-                                                        Not This Time!
-                                                    </Text>
-                                                    <Text fontSize="sm" color="fg.muted" maxW="300px">
-                                                        Your contribution helped reduce supply! Try again for another chance to win.
-                                                    </Text>
-                                                </>
-                                            )}
-
-                                            <HStack gap="3" mt="4">
-                                                <Button
-                                                    colorPalette="orange"
-                                                    onClick={handlePlayAgain}
-                                                >
-                                                    🔥 Contribute Again
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={onClose}
-                                                >
-                                                    Close
-                                                </Button>
-                                            </HStack>
-                                        </VStack>
+                                {/* Available Balance */}
+                                {address && asset && (
+                                    <Box
+                                        p="3"
+                                        bg="purple.50"
+                                        _dark={{ bg: "gray.800", borderColor: "purple.500" }}
+                                        borderRadius="lg"
+                                        borderWidth="1px"
+                                        borderColor="purple.300"
+                                    >
+                                        <HStack justify="space-between">
+                                            <Text fontSize="sm" fontWeight="medium">
+                                                Available Balance:
+                                            </Text>
+                                            <Text fontSize="sm" fontWeight="bold" color="purple.500">
+                                                {userBalance.toFixed(2)} {ticker}
+                                            </Text>
+                                        </HStack>
                                     </Box>
                                 )}
+
+                                {/* Number of Contributions */}
+                                <Box>
+                                    <Field.Root invalid={!!contributionsError}>
+                                        <Field.Label fontWeight="semibold">Number of Contributions</Field.Label>
+                                        <Input
+                                            size="lg"
+                                            type="number"
+                                            min="1"
+                                            value={numContributions}
+                                            onChange={(e) => handleContributionsChange(e.target.value)}
+                                            placeholder="1"
+                                            disabled={isSubmitting || !address}
+                                        />
+                                        <Field.HelperText fontSize="xs" color="fg.muted">
+                                            {contributionPrice} {ticker} per contribution
+                                        </Field.HelperText>
+                                        {contributionsError && <Field.ErrorText>{contributionsError}</Field.ErrorText>}
+                                    </Field.Root>
+                                </Box>
+
+                                {/* Total Cost */}
+                                <Box
+                                    p="3"
+                                    bg="orange.50"
+                                    _dark={{ bg: "gray.800", borderColor: "orange.500" }}
+                                    borderRadius="lg"
+                                    borderWidth="1px"
+                                    borderColor="orange.300"
+                                >
+                                    <HStack justify="space-between">
+                                        <Text fontSize="sm" fontWeight="medium">
+                                            Total Cost:
+                                        </Text>
+                                        <Text fontSize="lg" fontWeight="bold" color="orange.500">
+                                            {totalCost.toFixed(2)} {ticker}
+                                        </Text>
+                                    </HStack>
+                                </Box>
+
+                                {/* Warning */}
+                                <Box
+                                    p="3"
+                                    bg="yellow.50"
+                                    _dark={{ bg: "gray.800", borderColor: "yellow.500" }}
+                                    borderRadius="lg"
+                                    borderWidth="1px"
+                                    borderColor="yellow.300"
+                                >
+                                    <HStack gap="2">
+                                        <Text fontSize="lg">⚠️</Text>
+                                        <Text fontSize="xs" color="fg.muted">
+                                            Remember: More contributions increase your chances, but don&apos;t guarantee you&apos;ll win!
+                                        </Text>
+                                    </HStack>
+                                </Box>
                             </VStack>
                         </Dialog.Body>
 
-                        <Dialog.CloseTrigger disabled={isSpinning} />
+                        <Dialog.Footer>
+                            <HStack gap="3" width="full">
+                                <Button
+                                    flex="1"
+                                    variant="outline"
+                                    onClick={onClose}
+                                    disabled={isSubmitting}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    flex="1"
+                                    size="lg"
+                                    colorPalette="purple"
+                                    onClick={handleJoinRaffle}
+                                    disabled={!isFormValid || isSubmitting}
+                                    loading={isSubmitting}
+                                    loadingText="Joining..."
+                                    fontWeight="black"
+                                >
+                                    🎫 Join Raffle
+                                </Button>
+                            </HStack>
+                        </Dialog.Footer>
+
+                        <Dialog.CloseTrigger disabled={isSubmitting} />
 
                         {/* Add spinning animation */}
                         <style jsx global>{`
