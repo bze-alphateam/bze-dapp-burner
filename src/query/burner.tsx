@@ -7,15 +7,13 @@ import {PageRequest} from "@bze/bzejs/cosmos/base/query/v1beta1/pagination";
 import {getBurnerModuleAddress} from "@/query/module";
 import {NextBurn} from "@/types/burn";
 import {getAddressBalances} from "@/query/bank";
-import {getPeriodicWeekEpochEndTime} from "@/query/epoch";
+import {getHourEpochInfo, getPeriodicWeekEpochEndTime} from "@/query/epoch";
 import {toBigNumber} from "@/utils/amount";
 import BigNumber from "bignumber.js";
 
 const BURNED_KEY = 'burner:all_burned_coins';
 const BURN_EPOCH_COUNT = 4;
 const LOCAL_CACHE_TTL = 60 * 60 * 4; //4 hours
-const EPOCH_KEY = 'burner:epoch';
-const BURNER_EPOCH = 'hour';
 
 const {fromPartial: QueryAllBurnedCoinsRequestFromPartial} = bze.burner.QueryAllBurnedCoinsRequest;
 
@@ -107,25 +105,8 @@ async function getBurningTimeFromEpoch(): Promise<Date|undefined> {
 
 
 export async function getBurnerCurrentEpoch(): Promise<BigNumber> {
-    try {
-        const cacheKey = EPOCH_KEY;
-        const localData = getFromLocalStorage(cacheKey);
-        if (null !== localData) {
-            const parsed = JSON.parse(localData);
-            if (parsed) {
-                return parsed.current_epoch;
-            }
-        }
+    //burner uses hour epoch
+    const epoch = await getHourEpochInfo()
 
-        const client = await getRestClient();
-        const response = await client.bze.epochs.currentEpoch({identifier: BURNER_EPOCH});
-
-        setInLocalStorage(cacheKey, JSON.stringify(response), LOCAL_CACHE_TTL)
-
-        return toBigNumber(response.current_epoch ?? 0);
-    } catch (e) {
-        console.error(e);
-
-        return toBigNumber(0);
-    }
+    return toBigNumber(epoch?.current_epoch ?? 0);
 }

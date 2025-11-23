@@ -3,16 +3,52 @@ import {QueryEpochsInfoResponseSDKType} from "@bze/bzejs/bze/epochs/query";
 import {getRestClient} from "@/query/client";
 import {EpochInfoSDKType} from "@bze/bzejs/bze/epochs/epoch";
 import {toBigNumber} from "@/utils/amount";
+import {getFromLocalStorage, setInLocalStorage} from "@/storage/storage";
 
 const EPOCH_HOUR = "hour";
 const EPOCH_DAY = "day";
 const EPOCH_WEEK = "week";
+const EPOCHS_INFO_CACHE_KEY = "epochs:info";
+const EPOCHS_INFO_CACHE_TTL = 60 * 60; // 1 hour
 
 export async function getEpochsInfo(): Promise<QueryEpochsInfoResponseSDKType> {
     try {
-        const client = await getRestClient();
+        // Check if we have cached data
+        const cachedData = getFromLocalStorage(EPOCHS_INFO_CACHE_KEY);
+        let shouldFetchFromEndpoint = false;
 
-        return client.bze.epochs.epochInfos();
+        if (cachedData !== null) {
+            const cached: QueryEpochsInfoResponseSDKType = JSON.parse(cachedData);
+
+            // Check if any epoch has expired (start_time + epoch_duration has passed)
+            const now = new Date().getTime();
+            for (const epoch of cached.epochs) {
+                if (epoch.current_epoch_start_time) {
+                    const startTime = new Date(epoch.current_epoch_start_time).getTime();
+                    const duration = getEpochDurationByIdentifier(epoch.identifier);
+                    // subtract 15 seconds to account for potential clock skew due to blocks being produced slightly
+                    // after epoch start time
+                    const epochEndTime = startTime + duration - (15 * 1000);
+
+                    if (now >= epochEndTime) {
+                        shouldFetchFromEndpoint = true;
+                        break;
+                    }
+                }
+            }
+
+            // If no epoch has expired, return cached data
+            if (!shouldFetchFromEndpoint) {
+                return cached;
+            }
+        }
+
+        // Fetch from endpoint
+        const client = await getRestClient();
+        const response = await client.bze.epochs.epochInfos();
+        setInLocalStorage(EPOCHS_INFO_CACHE_KEY, JSON.stringify(response), EPOCHS_INFO_CACHE_TTL);
+
+        return response;
     } catch (e) {
         console.error(e);
 
