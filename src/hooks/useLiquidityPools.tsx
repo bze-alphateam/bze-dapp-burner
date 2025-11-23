@@ -2,7 +2,7 @@ import {useCallback, useMemo} from "react";
 import {toBigNumber} from "@/utils/amount";
 import {useAssetsContext} from "@/hooks/useAssets";
 import BigNumber from "bignumber.js";
-import {calculatePoolOppositeAmount, createPoolId} from "@/utils/liquidity_pool";
+import {calculatePoolOppositeAmount, createPoolId, poolIdFromPoolDenom} from "@/utils/liquidity_pool";
 
 export function useLiquidityPools() {
     const {poolsMap, poolsDataMap, isLoading} = useAssetsContext()
@@ -15,11 +15,18 @@ export function useLiquidityPools() {
         return poolsMap.get(poolId)
     }, [poolsMap])
 
+    const getPoolByLpDenom = useCallback((lpDenom: string) => {
+        const poolId = poolIdFromPoolDenom(lpDenom)
+
+        return poolsMap.get(poolId)
+    }, [poolsMap])
+
     return {
         pools,
         isLoading: isLoading,
         poolsData: poolsDataMap,
         getDenomsPool,
+        getPoolByLpDenom,
     }
 }
 

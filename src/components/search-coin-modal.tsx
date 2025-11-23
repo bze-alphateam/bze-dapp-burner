@@ -3,30 +3,21 @@
 import {
     Box,
     HStack,
-    Image,
     Input,
     Portal,
     Text,
     VStack,
     Dialog,
+    Badge,
 } from "@chakra-ui/react";
 import { useState, useMemo } from "react";
 import { LuSearch } from "react-icons/lu";
 import { useRouter } from "next/navigation";
-
-// Mock coin data (this will be replaced with real data later)
-const mockCoins = [
-    { denom: "ubze", name: "BeeZee", ticker: "BZE", logo: "/images/token.svg" },
-    { denom: "uatom", name: "Cosmos", ticker: "ATOM", logo: "/images/token.svg" },
-    { denom: "uosmo", name: "Osmosis", ticker: "OSMO", logo: "/images/token.svg" },
-    { denom: "ujuno", name: "Juno", ticker: "JUNO", logo: "/images/token.svg" },
-    { denom: "ustars", name: "Stargaze", ticker: "STARS", logo: "/images/token.svg" },
-    { denom: "uakt", name: "Akash", ticker: "AKT", logo: "/images/token.svg" },
-    { denom: "uregen", name: "Regen", ticker: "REGEN", logo: "/images/token.svg" },
-    { denom: "usomm", name: "Sommelier", ticker: "SOMM", logo: "/images/token.svg" },
-    { denom: "uixo", name: "IXO", ticker: "IXO", logo: "/images/token.svg" },
-    { denom: "uluna", name: "Terra", ticker: "LUNA", logo: "/images/token.svg" },
-];
+import { useAssets } from "@/hooks/useAssets";
+import { useLiquidityPools } from "@/hooks/useLiquidityPools";
+import { TokenLogo } from "@/components/ui/token_logo";
+import { LPTokenLogo } from "@/components/ui/lp_token_logo";
+import { isLpDenom, truncateDenom } from "@/utils/denom";
 
 interface SearchCoinModalProps {
     isOpen: boolean;
@@ -37,28 +28,40 @@ interface SearchCoinModalProps {
 export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinModalProps) => {
     const [searchQuery, setSearchQuery] = useState("");
     const router = useRouter();
+    const { assets, isLoading, getAsset } = useAssets();
+    const { getPoolByLpDenom } = useLiquidityPools();
 
-    // Filter coins based on search query
+    // Filter and sort coins based on search query
     const filteredCoins = useMemo(() => {
-        if (!searchQuery.trim()) {
-            return mockCoins;
+        if (!assets) return [];
+
+        let coins = assets;
+
+        // Filter by search query if provided
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            coins = assets.filter(
+                (coin) =>
+                    coin.name.toLowerCase().includes(query) ||
+                    coin.ticker.toLowerCase().includes(query) ||
+                    coin.denom.toLowerCase().includes(query)
+            );
         }
 
-        const query = searchQuery.toLowerCase();
-        return mockCoins.filter(
-            (coin) =>
-                coin.name.toLowerCase().includes(query) ||
-                coin.ticker.toLowerCase().includes(query) ||
-                coin.denom.toLowerCase().includes(query)
-        );
-    }, [searchQuery]);
+        // Sort: verified coins first, then the rest
+        return coins.sort((a, b) => {
+            if (a.verified && !b.verified) return -1;
+            if (!a.verified && b.verified) return 1;
+            return 0;
+        });
+    }, [searchQuery, assets]);
 
     const handleCoinClick = (denom: string) => {
         if (onCoinSelect) {
             onCoinSelect(denom);
         } else {
             // Navigate to coin detail page with query param
-            router.push(`/coin?denom=${encodeURIComponent(denom)}`);
+            router.push(`/coin?coin=${encodeURIComponent(denom)}`);
         }
         onClose();
     };
@@ -115,53 +118,85 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                                     borderWidth="1px"
                                     borderColor="border"
                                 >
-                                    {filteredCoins.length > 0 ? (
+                                    {isLoading ? (
+                                        <Box p="8" textAlign="center">
+                                            <Text fontSize="md" color="fg.muted">
+                                                Loading coins...
+                                            </Text>
+                                        </Box>
+                                    ) : filteredCoins.length > 0 ? (
                                         <VStack gap="0" align="stretch">
-                                            {filteredCoins.map((coin, idx) => (
-                                                <Box
-                                                    key={coin.denom}
-                                                    p="4"
-                                                    cursor="pointer"
-                                                    borderBottomWidth={idx < filteredCoins.length - 1 ? "1px" : "0"}
-                                                    borderColor="border"
-                                                    _hover={{
-                                                        bg: "orange.50",
-                                                        _dark: { bg: "gray.800" }
-                                                    }}
-                                                    transition="all 0.2s"
-                                                    onClick={() => handleCoinClick(coin.denom)}
-                                                >
-                                                    <HStack gap="3">
-                                                        <Box
-                                                            p="1"
-                                                            bg="orange.50"
-                                                            _dark={{ bg: "orange.950" }}
-                                                            borderRadius="full"
-                                                        >
-                                                            <Image
-                                                                src={coin.logo}
-                                                                alt={coin.ticker}
-                                                                width="40px"
-                                                                height="40px"
+                                            {filteredCoins.map((coin, idx) => {
+                                                const isLP = isLpDenom(coin.denom);
+                                                let baseAsset, quoteAsset;
+
+                                                if (isLP) {
+                                                    const pool = getPoolByLpDenom(coin.denom);
+                                                    if (pool) {
+                                                        baseAsset = getAsset(pool.base);
+                                                        quoteAsset = getAsset(pool.quote);
+                                                    }
+                                                }
+
+                                                return (
+                                                    <Box
+                                                        key={coin.denom}
+                                                        p="4"
+                                                        cursor="pointer"
+                                                        borderBottomWidth={idx < filteredCoins.length - 1 ? "1px" : "0"}
+                                                        borderColor="border"
+                                                        _hover={{
+                                                            bg: "orange.50",
+                                                            _dark: { bg: "gray.800" }
+                                                        }}
+                                                        transition="all 0.2s"
+                                                        onClick={() => handleCoinClick(coin.denom)}
+                                                    >
+                                                        <HStack gap="3">
+                                                            <Box
+                                                                p="1"
+                                                                bg="orange.50"
+                                                                _dark={{ bg: "orange.950" }}
                                                                 borderRadius="full"
-                                                            />
-                                                        </Box>
-                                                        <VStack gap="0" align="start" flex="1">
-                                                            <HStack gap="2">
-                                                                <Text fontWeight="bold" fontSize="md">
-                                                                    {coin.ticker}
+                                                            >
+                                                                {isLP && baseAsset && quoteAsset ? (
+                                                                    <LPTokenLogo
+                                                                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
+                                                                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
+                                                                        baseAssetSymbol={baseAsset.ticker}
+                                                                        quoteAssetSymbol={quoteAsset.ticker}
+                                                                        size="40px"
+                                                                    />
+                                                                ) : (
+                                                                    <TokenLogo
+                                                                        src={coin.logo}
+                                                                        symbol={coin.ticker}
+                                                                        size="40px"
+                                                                    />
+                                                                )}
+                                                            </Box>
+                                                            <VStack gap="0" align="start" flex="1">
+                                                                <HStack gap="2">
+                                                                    <Text fontWeight="bold" fontSize="md">
+                                                                        {coin.ticker}
+                                                                    </Text>
+                                                                    {coin.verified && (
+                                                                        <Badge colorPalette="green" size="xs" variant="solid">
+                                                                            ✓
+                                                                        </Badge>
+                                                                    )}
+                                                                </HStack>
+                                                                <Text fontSize="sm" color="fg.muted">
+                                                                    {coin.name}
                                                                 </Text>
                                                                 <Text fontSize="xs" color="fg.muted">
-                                                                    {coin.denom}
+                                                                    {truncateDenom(coin.denom)}
                                                                 </Text>
-                                                            </HStack>
-                                                            <Text fontSize="sm" color="fg.muted">
-                                                                {coin.name}
-                                                            </Text>
-                                                        </VStack>
-                                                    </HStack>
-                                                </Box>
-                                            ))}
+                                                            </VStack>
+                                                        </HStack>
+                                                    </Box>
+                                                );
+                                            })}
                                         </VStack>
                                     ) : (
                                         <Box p="8" textAlign="center">

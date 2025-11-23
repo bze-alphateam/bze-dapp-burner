@@ -18,23 +18,11 @@ import { useMemo, useState } from "react";
 import { BurnModal } from "@/components/burn-modal";
 import { RaffleModal } from "@/components/raffle-modal";
 import { RaffleInfoModal } from "@/components/raffle-info-modal";
-
-// Mock coin data
-const mockCoins: Record<string, {
-    denom: string;
-    name: string;
-    ticker: string;
-    price: string;
-    logo: string;
-    isBurnable: boolean;
-    totalBurned: string;
-    totalBurnedUSD: string;
-}> = {
-    "ubze": { denom: "ubze", name: "BeeZee", ticker: "BZE", price: "$5.00", logo: "/images/token.svg", isBurnable: true, totalBurned: "18,400.00", totalBurnedUSD: "92,000.00" },
-    "uatom": { denom: "uatom", name: "Cosmos", ticker: "ATOM", price: "$8.00", logo: "/images/token.svg", isBurnable: false, totalBurned: "1,950.50", totalBurnedUSD: "15,604.00" },
-    "uosmo": { denom: "uosmo", name: "Osmosis", ticker: "OSMO", price: "$0.80", logo: "/images/token.svg", isBurnable: false, totalBurned: "5,700.75", totalBurnedUSD: "4,560.60" },
-    "ujuno": { denom: "ujuno", name: "Juno", ticker: "JUNO", price: "$0.80", logo: "/images/token.svg", isBurnable: true, totalBurned: "0", totalBurnedUSD: "0" },
-};
+import { useBurningHistory } from "@/hooks/useBurningHistory";
+import { useAssets } from "@/hooks/useAssets";
+import { useAssetsValue } from "@/hooks/useAssetsValue";
+import BigNumber from "bignumber.js";
+import { prettyAmount } from "@/utils/amount";
 
 // Mock raffles for specific coins
 const mockCoinRaffles: Record<string, Array<{
@@ -84,46 +72,36 @@ const mockCoinRaffles: Record<string, Array<{
     ],
 };
 
-// Mock burn history for specific coins
-const mockCoinBurnHistory: Record<string, Array<{
-    amount: string;
-    usdValue: string;
-    blockHeight: string;
-    timestamp: string;
-}>> = {
-    "ubze": [
-        { amount: "5,000.00", usdValue: "25,000.00", blockHeight: "1,234,567", timestamp: "2 hours ago" },
-        { amount: "2,100.00", usdValue: "10,500.00", blockHeight: "1,234,564", timestamp: "5 hours ago" },
-        { amount: "4,500.00", usdValue: "22,500.00", blockHeight: "1,234,561", timestamp: "8 hours ago" },
-        { amount: "6,800.00", usdValue: "34,000.00", blockHeight: "1,234,558", timestamp: "12 hours ago" },
-    ],
-    "uatom": [
-        { amount: "1,200.50", usdValue: "9,604.00", blockHeight: "1,234,566", timestamp: "3 hours ago" },
-        { amount: "750.00", usdValue: "6,000.00", blockHeight: "1,234,560", timestamp: "9 hours ago" },
-    ],
-    "uosmo": [
-        { amount: "3,400.75", usdValue: "2,720.60", blockHeight: "1,234,565", timestamp: "4 hours ago" },
-        { amount: "2,300.00", usdValue: "1,840.00", blockHeight: "1,234,559", timestamp: "11 hours ago" },
-    ],
-};
-
 export default function CoinDetailPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const denom = searchParams.get('denom') || '';
+    const denom = searchParams.get('coin') || '';
 
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
     const [isRaffleModalOpen, setIsRaffleModalOpen] = useState(false);
     const [isRaffleInfoModalOpen, setIsRaffleInfoModalOpen] = useState(false);
     const [selectedRaffle, setSelectedRaffle] = useState<typeof mockCoinRaffles[string][0] | null>(null);
 
-    const coinData = useMemo(() => {
-        return mockCoins[denom] || null;
-    }, [denom]);
+    // Get asset from useAssets
+    const { getAsset, isLoading: isLoadingAssets } = useAssets();
+    const { totalUsdValue } = useAssetsValue();
+    const asset = getAsset(denom);
 
-    const burnHistory = useMemo(() => {
-        return mockCoinBurnHistory[denom] || [];
-    }, [denom]);
+    // Fetch burn history for this specific coin
+    const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory(denom);
+
+    // Calculate total burned for this coin
+    const totalBurned = useMemo(() => {
+        return burnHistory.reduce((total, burn) => {
+            return total.plus(burn.amount);
+        }, BigNumber(0));
+    }, [burnHistory]);
+
+    // Calculate USD value of total burned
+    const totalBurnedUsdValue = useMemo(() => {
+        if (!asset || totalBurned.isZero()) return BigNumber(0);
+        return totalUsdValue([{ denom: asset.denom, amount: totalBurned }]);
+    }, [totalBurned, asset, totalUsdValue]);
 
     const raffles = useMemo(() => {
         return mockCoinRaffles[denom] || [];
@@ -134,13 +112,30 @@ export default function CoinDetailPage() {
         setIsRaffleModalOpen(true);
     };
 
-    if (!coinData) {
+    // Show loading state
+    if (isLoadingAssets) {
+        return (
+            <Container py="10">
+                <VStack gap="4" align="center" py="20">
+                    <Text fontSize="xl" color="fg.muted">
+                        Loading...
+                    </Text>
+                </VStack>
+            </Container>
+        );
+    }
+
+    // Show 404 if coin not found
+    if (!asset) {
         return (
             <Container py="10">
                 <VStack gap="4" align="center" py="20">
                     <Text fontSize="4xl">🤷</Text>
                     <Text fontSize="xl" fontWeight="bold">
                         Coin not found
+                    </Text>
+                    <Text fontSize="sm" color="fg.muted">
+                        The coin &quot;{denom}&quot; does not exist.
                     </Text>
                     <Button onClick={() => router.push('/')} colorPalette="orange">
                         Go Home
@@ -192,8 +187,8 @@ export default function CoinDetailPage() {
                                             borderRadius="full"
                                         >
                                             <Image
-                                                src={coinData.logo}
-                                                alt={coinData.ticker}
+                                                src={asset.logo || "/images/token.svg"}
+                                                alt={asset.ticker}
                                                 width="64px"
                                                 height="64px"
                                                 borderRadius="full"
@@ -202,18 +197,20 @@ export default function CoinDetailPage() {
                                         <VStack gap="1" align="start">
                                             <HStack gap="2">
                                                 <Text fontSize="2xl" fontWeight="black">
-                                                    {coinData.ticker}
+                                                    {asset.ticker}
                                                 </Text>
-                                                <Badge colorPalette="gray" size="lg" variant="subtle">
-                                                    {coinData.denom}
-                                                </Badge>
+                                                {asset.verified && (
+                                                    <Badge colorPalette="green" size="sm" variant="solid">
+                                                        ✓ Verified
+                                                    </Badge>
+                                                )}
                                             </HStack>
                                             <Text fontSize="md" color="fg.muted" fontWeight="medium">
-                                                {coinData.name}
+                                                {asset.name}
                                             </Text>
-                                            <Text fontSize="lg" fontWeight="bold" color="orange.500">
-                                                {coinData.price}
-                                            </Text>
+                                            <Badge colorPalette="gray" size="sm" variant="subtle">
+                                                {asset.denom}
+                                            </Badge>
                                         </VStack>
                                     </HStack>
 
@@ -223,36 +220,9 @@ export default function CoinDetailPage() {
                                         onClick={() => setIsBurnModalOpen(true)}
                                         fontWeight="bold"
                                     >
-                                        🔥 Burn {coinData.ticker}
+                                        🔥 Burn {asset.ticker}
                                     </Button>
                                 </HStack>
-
-                                {/* Burnable Status - Only show if NOT burnable */}
-                                {!coinData.isBurnable && (
-                                    <Box
-                                        p="4"
-                                        bg="yellow.50"
-                                        _dark={{
-                                            bg: "yellow.900/30",
-                                            borderColor: "yellow.500"
-                                        }}
-                                        borderRadius="lg"
-                                        borderWidth="2px"
-                                        borderColor="yellow.300"
-                                    >
-                                        <HStack gap="3">
-                                            <Text fontSize="2xl">⚠️</Text>
-                                            <VStack gap="1" align="start" flex="1">
-                                                <Text fontSize="sm" fontWeight="bold" color="yellow.700" _dark={{ color: "yellow.300" }}>
-                                                    Not Directly Burnable
-                                                </Text>
-                                                <Text fontSize="xs" color="fg.muted">
-                                                    This token will be exchanged to BZE first, then the BZE will be burned.
-                                                </Text>
-                                            </VStack>
-                                        </HStack>
-                                    </Box>
-                                )}
                             </VStack>
                         </Card.Body>
                     </Card.Root>
@@ -438,18 +408,24 @@ export default function CoinDetailPage() {
                         <Card.Body>
                             <VStack gap="2" align="center" py="4">
                                 <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
-                                    💰 Total {coinData.ticker} Burned
+                                    💰 Total {asset.ticker} Burned
                                 </Text>
-                                <VStack gap="1" align="center">
-                                    <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500">
-                                        {coinData.totalBurned}
+                                {isLoadingHistory ? (
+                                    <Text fontSize="md" color="fg.muted">
+                                        Loading...
                                     </Text>
-                                    {parseFloat(coinData.totalBurnedUSD) > 0 && (
-                                        <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
-                                            ≈ ${coinData.totalBurnedUSD}
+                                ) : (
+                                    <VStack gap="1" align="center">
+                                        <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500">
+                                            {prettyAmount(totalBurned)}
                                         </Text>
-                                    )}
-                                </VStack>
+                                        {totalBurnedUsdValue.gt(0) && (
+                                            <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
+                                                ≈ ${prettyAmount(totalBurnedUsdValue)}
+                                            </Text>
+                                        )}
+                                    </VStack>
+                                )}
                                 <Badge colorPalette="orange" variant="subtle" size="md" borderRadius="full">
                                     All Time
                                 </Badge>
@@ -458,11 +434,19 @@ export default function CoinDetailPage() {
                     </Card.Root>
 
                     {/* Burn History */}
-                    {burnHistory.length > 0 ? (
-                        <Box>
-                            <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black" mb="4">
-                                🔥 Recent Burns
-                            </Text>
+                    <Box>
+                        <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black" mb="4">
+                            🔥 Recent Burns
+                        </Text>
+                        {isLoadingHistory ? (
+                            <Card.Root>
+                                <Card.Body>
+                                    <Text textAlign="center" py="8" color="fg.muted">
+                                        Loading burn history...
+                                    </Text>
+                                </Card.Body>
+                            </Card.Root>
+                        ) : burnHistory.length > 0 ? (
                             <Box
                                 borderRadius="3xl"
                                 borderWidth="3px"
@@ -484,37 +468,44 @@ export default function CoinDetailPage() {
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
-                                            {burnHistory.map((burn, idx) => (
-                                                <Table.Row
-                                                    key={idx}
-                                                    _hover={{
-                                                        bg: "orange.50",
-                                                        _dark: { bg: "orange.950" }
-                                                    }}
-                                                    transition="all 0.2s"
-                                                >
-                                                    <Table.Cell>
-                                                        <Text fontWeight="black" fontSize="md" color="orange.500">
-                                                            {burn.amount} {coinData.ticker}
-                                                        </Text>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Text fontSize="sm" color="fg.muted">
-                                                            ${burn.usdValue}
-                                                        </Text>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Badge colorPalette="gray" variant="subtle" size="md" borderRadius="full">
-                                                            #{burn.blockHeight}
-                                                        </Badge>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Text fontSize="sm" color="fg.muted">
-                                                            {burn.timestamp}
-                                                        </Text>
-                                                    </Table.Cell>
-                                                </Table.Row>
-                                            ))}
+                                            {burnHistory.map((burn, idx) => {
+                                                const assetData = getAsset(burn.denom);
+                                                const ticker = assetData?.ticker || burn.denom;
+                                                const formattedAmount = prettyAmount(burn.amount);
+                                                const formattedUsdValue = prettyAmount(burn.usdValue);
+
+                                                return (
+                                                    <Table.Row
+                                                        key={idx}
+                                                        _hover={{
+                                                            bg: "orange.50",
+                                                            _dark: { bg: "orange.950" }
+                                                        }}
+                                                        transition="all 0.2s"
+                                                    >
+                                                        <Table.Cell>
+                                                            <Text fontWeight="black" fontSize="md" color="orange.500">
+                                                                {formattedAmount} {ticker}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Text fontSize="sm" color="fg.muted">
+                                                                {burn.usdValue.gt(0) ? `$${formattedUsdValue}` : '-'}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Badge colorPalette="gray" variant="subtle" size="md" borderRadius="full">
+                                                                #{burn.blockHeight}
+                                                            </Badge>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Text fontSize="sm" color="fg.muted">
+                                                                {burn.timestamp}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                );
+                                            })}
                                         </Table.Body>
                                     </Table.Root>
                                 </Box>
@@ -522,60 +513,67 @@ export default function CoinDetailPage() {
                                 {/* Mobile Card View */}
                                 <Box display={{ base: "block", md: "none" }}>
                                     <VStack gap="0" align="stretch">
-                                        {burnHistory.map((burn, idx) => (
-                                            <Box
-                                                key={idx}
-                                                p="4"
-                                                borderBottomWidth={idx < burnHistory.length - 1 ? "2px" : "0"}
-                                                borderColor="orange.200"
-                                                _dark={{ borderColor: "orange.800" }}
-                                            >
-                                                <VStack gap="2" align="stretch">
-                                                    <HStack justify="space-between">
-                                                        <Text fontWeight="black" color="orange.500" fontSize="md">
-                                                            {burn.amount} {coinData.ticker}
-                                                        </Text>
-                                                        <Text fontSize="sm" color="fg.muted">
-                                                            ${burn.usdValue}
-                                                        </Text>
-                                                    </HStack>
-                                                    <HStack justify="space-between">
-                                                        <Badge colorPalette="gray" variant="subtle" size="sm" borderRadius="full">
-                                                            #{burn.blockHeight}
-                                                        </Badge>
-                                                        <Text fontSize="xs" color="fg.muted">
-                                                            {burn.timestamp}
-                                                        </Text>
-                                                    </HStack>
-                                                </VStack>
-                                            </Box>
-                                        ))}
+                                        {burnHistory.map((burn, idx) => {
+                                            const assetData = getAsset(burn.denom);
+                                            const ticker = assetData?.ticker || burn.denom;
+                                            const formattedAmount = prettyAmount(burn.amount);
+                                            const formattedUsdValue = prettyAmount(burn.usdValue);
+
+                                            return (
+                                                <Box
+                                                    key={idx}
+                                                    p="4"
+                                                    borderBottomWidth={idx < burnHistory.length - 1 ? "2px" : "0"}
+                                                    borderColor="orange.200"
+                                                    _dark={{ borderColor: "orange.800" }}
+                                                >
+                                                    <VStack gap="2" align="stretch">
+                                                        <HStack justify="space-between">
+                                                            <Text fontWeight="black" color="orange.500" fontSize="md">
+                                                                {formattedAmount} {ticker}
+                                                            </Text>
+                                                            <Text fontSize="sm" color="fg.muted">
+                                                                {burn.usdValue.gt(0) ? `$${formattedUsdValue}` : '-'}
+                                                            </Text>
+                                                        </HStack>
+                                                        <HStack justify="space-between">
+                                                            <Badge colorPalette="gray" variant="subtle" size="sm" borderRadius="full">
+                                                                #{burn.blockHeight}
+                                                            </Badge>
+                                                            <Text fontSize="xs" color="fg.muted">
+                                                                {burn.timestamp}
+                                                            </Text>
+                                                        </HStack>
+                                                    </VStack>
+                                                </Box>
+                                            );
+                                        })}
                                     </VStack>
                                 </Box>
                             </Box>
-                        </Box>
-                    ) : (
-                        <Card.Root>
-                            <Card.Body>
-                                <VStack gap="3" align="center" py="8">
-                                    <Text fontSize="4xl">🔍</Text>
-                                    <Text fontSize="xl" fontWeight="bold">
-                                        No Burns Yet
-                                    </Text>
-                                    <Text fontSize="sm" color="fg.muted" textAlign="center">
-                                        This token hasn&apos;t been burned yet. Be the first to toss it into the fire!
-                                    </Text>
-                                    <Button
-                                        colorPalette="orange"
-                                        onClick={() => setIsBurnModalOpen(true)}
-                                        mt="2"
-                                    >
-                                        🔥 Burn Some Now
-                                    </Button>
-                                </VStack>
-                            </Card.Body>
-                        </Card.Root>
-                    )}
+                        ) : (
+                            <Card.Root>
+                                <Card.Body>
+                                    <VStack gap="3" align="center" py="8">
+                                        <Text fontSize="4xl">🔍</Text>
+                                        <Text fontSize="xl" fontWeight="bold">
+                                            No Burns Yet
+                                        </Text>
+                                        <Text fontSize="sm" color="fg.muted" textAlign="center">
+                                            This token hasn&apos;t been burned yet. Be the first to toss it into the fire!
+                                        </Text>
+                                        <Button
+                                            colorPalette="orange"
+                                            onClick={() => setIsBurnModalOpen(true)}
+                                            mt="2"
+                                        >
+                                            🔥 Burn Some Now
+                                        </Button>
+                                    </VStack>
+                                </Card.Body>
+                            </Card.Root>
+                        )}
+                    </Box>
                 </VStack>
             </Container>
 
@@ -595,7 +593,7 @@ export default function CoinDetailPage() {
                     contributionPrice={selectedRaffle.contributionPrice}
                     currentPrize={selectedRaffle.currentPrize}
                     winChance={selectedRaffle.winChance}
-                    ticker={coinData?.ticker || ''}
+                    ticker={asset.ticker}
                 />
             )}
 

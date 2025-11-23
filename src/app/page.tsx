@@ -15,29 +15,20 @@ import {
     Separator,
     Button,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { BurnModal } from "@/components/burn-modal";
+import { useBurningHistory } from "@/hooks/useBurningHistory";
+import { useAssets } from "@/hooks/useAssets";
+import { useAssetsValue } from "@/hooks/useAssetsValue";
+import BigNumber from "bignumber.js";
+import { prettyAmount } from "@/utils/amount";
 
 // Mock data for pending burns
 const mockPendingBurns = [
     { denom: "ubze", name: "BeeZee", ticker: "BZE", amount: "1,234.56", usdValue: "6,172.80", logo: "/images/token.svg", isLP: false },
     { denom: "uatom", name: "Cosmos", ticker: "ATOM", amount: "567.89", usdValue: "4,543.12", logo: "/images/token.svg", isLP: false },
     { denom: "lp-bze-atom", name: "BZE/ATOM LP", ticker: "BZE/ATOM", amount: "890.12", usdValue: "712.10", logo: "/images/token.svg", logo2: "/images/token.svg", isLP: true },
-];
-
-// Mock data for last burnings
-const mockLastBurnings = [
-    { name: "BeeZee", ticker: "BZE", amount: "5,000.00", usdValue: "25,000.00", blockHeight: "1,234,567", logo: "/images/token.svg", isLP: false },
-    { name: "BZE/ATOM LP", ticker: "BZE/ATOM", amount: "1,200.50", usdValue: "9,604.00", blockHeight: "1,234,566", logo: "/images/token.svg", logo2: "/images/token.svg", isLP: true },
-    { name: "Osmosis", ticker: "OSMO", amount: "3,400.75", usdValue: "2,720.60", blockHeight: "1,234,565", logo: "/images/token.svg", isLP: false },
-    { name: "BeeZee", ticker: "BZE", amount: "2,100.00", usdValue: "10,500.00", blockHeight: "1,234,564", logo: "/images/token.svg", isLP: false },
-    { name: "BZE/OSMO LP", ticker: "BZE/OSMO", amount: "890.25", usdValue: "712.20", blockHeight: "1,234,563", logo: "/images/token.svg", logo2: "/images/token.svg", isLP: true },
-    { name: "Stargaze", ticker: "STARS", amount: "15,000.00", usdValue: "1,200.00", blockHeight: "1,234,562", logo: "/images/token.svg", isLP: false },
-    { name: "BeeZee", ticker: "BZE", amount: "4,500.00", usdValue: "22,500.00", blockHeight: "1,234,561", logo: "/images/token.svg", isLP: false },
-    { name: "Cosmos", ticker: "ATOM", amount: "750.00", usdValue: "6,000.00", blockHeight: "1,234,560", logo: "/images/token.svg", isLP: false },
-    { name: "Osmosis", ticker: "OSMO", amount: "2,300.00", usdValue: "1,840.00", blockHeight: "1,234,559", logo: "/images/token.svg", isLP: false },
-    { name: "BeeZee", ticker: "BZE", amount: "6,800.00", usdValue: "34,000.00", blockHeight: "1,234,558", logo: "/images/token.svg", isLP: false },
 ];
 
 // Token Logo Component - supports single token or LP pair
@@ -271,8 +262,33 @@ export default function BurnerHomePage() {
     // Router for navigation
     const router = useRouter();
 
+    // Fetch burn history
+    const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory();
+    const { getAsset, nativeAsset } = useAssets();
+    const { totalUsdValue } = useAssetsValue();
+
+    // Get last 10 burns
+    const lastBurnings = burnHistory.slice(0, 10);
+
+    // Calculate total BZE burned
+    const totalBzeBurned = useMemo(() => {
+        if (!nativeAsset) return BigNumber(0);
+
+        const nativeBurns = burnHistory.filter(burn => burn.denom === nativeAsset.denom);
+        return nativeBurns.reduce((total, burn) => {
+            return total.plus(burn.amount);
+        }, BigNumber(0));
+    }, [burnHistory, nativeAsset]);
+
+    // Calculate USD value of total BZE burned
+    const totalBzeUsdValue = useMemo(() => {
+        if (!nativeAsset || totalBzeBurned.isZero()) return BigNumber(0);
+
+        return totalUsdValue([{ denom: nativeAsset.denom, amount: totalBzeBurned }]);
+    }, [totalBzeBurned, nativeAsset, totalUsdValue]);
+
     const handleCoinClick = (denom: string) => {
-        router.push(`/coin?denom=${encodeURIComponent(denom)}`);
+        router.push(`/coin?coin=${encodeURIComponent(denom)}`);
     };
 
     return (
@@ -407,16 +423,24 @@ export default function BurnerHomePage() {
                         <Card.Body>
                             <VStack gap="2" align="center" py="6">
                                 <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
-                                    💰 Total BZE Incinerated
+                                    💰 Total {nativeAsset?.ticker || 'BZE'} Incinerated
                                 </Text>
-                                <VStack gap="1" align="center">
-                                    <Text fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }} fontWeight="black" color="orange.500">
-                                        1,234,567.89
+                                {isLoadingHistory ? (
+                                    <Text fontSize="md" color="fg.muted">
+                                        Loading...
                                     </Text>
-                                    <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
-                                        ≈ $6,172,839.45
-                                    </Text>
-                                </VStack>
+                                ) : (
+                                    <VStack gap="1" align="center">
+                                        <Text fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }} fontWeight="black" color="orange.500">
+                                            {prettyAmount(totalBzeBurned)}
+                                        </Text>
+                                        {totalBzeUsdValue.gt(0) && (
+                                            <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
+                                                ≈ ${prettyAmount(totalBzeUsdValue)}
+                                            </Text>
+                                        )}
+                                    </VStack>
+                                )}
                                 <Badge colorPalette="orange" variant="subtle" size="md" borderRadius="full">
                                     All Time
                                 </Badge>
@@ -457,131 +481,199 @@ export default function BurnerHomePage() {
                                         </Table.Row>
                                     </Table.Header>
                                     <Table.Body>
-                                        {mockLastBurnings.map((burn, idx) => (
-                                            <Table.Row
-                                                key={idx}
-                                                cursor="pointer"
-                                                onClick={() => handleCoinClick(burn.ticker.toLowerCase().startsWith('bze') ? 'ubze' : `u${burn.ticker.toLowerCase()}`)}
-                                                _hover={{
-                                                    bg: "orange.50",
-                                                    _dark: { bg: "orange.950" }
-                                                }}
-                                                transition="all 0.2s"
-                                            >
-                                                <Table.Cell>
-                                                    <HStack gap="3">
-                                                        <Box
-                                                            p="1"
-                                                            bg="orange.50"
-                                                            _dark={{ bg: "orange.950" }}
-                                                            borderRadius="full"
-                                                            width={burn.isLP ? "52px" : "auto"}
-                                                            display="flex"
-                                                            justifyContent="center"
-                                                            alignItems="center"
-                                                        >
-                                                            <TokenLogo
-                                                                logo={burn.logo}
-                                                                logo2={burn.logo2}
-                                                                isLP={burn.isLP}
-                                                                size="32px"
-                                                                alt={burn.ticker}
-                                                            />
-                                                        </Box>
-                                                        <Text fontWeight="bold" fontSize="md">{burn.ticker}</Text>
-                                                    </HStack>
-                                                </Table.Cell>
-                                                <Table.Cell>
-                                                    <Text fontSize="md" color="fg.muted" fontWeight="medium">
-                                                        {burn.name}
+                                        {isLoadingHistory ? (
+                                            <Table.Row>
+                                                <Table.Cell colSpan={4}>
+                                                    <Text textAlign="center" py="8" color="fg.muted">
+                                                        Loading burn history...
                                                     </Text>
                                                 </Table.Cell>
-                                                <Table.Cell>
-                                                    <VStack gap="0" align="start">
-                                                        <Text fontWeight="black" fontSize="md" color="orange.500">
-                                                            {burn.amount}
+                                            </Table.Row>
+                                        ) : lastBurnings.length === 0 ? (
+                                            <Table.Row>
+                                                <Table.Cell colSpan={4}>
+                                                    <VStack gap="3" align="center" py="8">
+                                                        <Text fontSize="4xl">🔍</Text>
+                                                        <Text fontSize="lg" fontWeight="bold">
+                                                            No Burns Yet
                                                         </Text>
-                                                        {burn.usdValue && (
-                                                            <Text fontSize="sm" color="fg.muted">
-                                                                ≈ ${burn.usdValue}
-                                                            </Text>
-                                                        )}
+                                                        <Text fontSize="sm" color="fg.muted">
+                                                            Be the first to burn some tokens!
+                                                        </Text>
                                                     </VStack>
                                                 </Table.Cell>
-                                                <Table.Cell>
-                                                    <Badge colorPalette="gray" variant="subtle" size="md" borderRadius="full">
-                                                        #{burn.blockHeight}
-                                                    </Badge>
-                                                </Table.Cell>
                                             </Table.Row>
-                                        ))}
+                                        ) : (
+                                            lastBurnings.map((burn, idx) => {
+                                                const asset = getAsset(burn.denom);
+                                                const ticker = asset?.ticker || burn.denom;
+                                                const name = asset?.name || burn.denom;
+                                                const logo = asset?.logo || "/images/token.svg";
+                                                const isLP = burn.denom.startsWith("ulp_");
+                                                const formattedAmount = prettyAmount(burn.amount);
+                                                const formattedUsdValue = prettyAmount(burn.usdValue);
+
+                                                return (
+                                                    <Table.Row
+                                                        key={idx}
+                                                        cursor="pointer"
+                                                        onClick={() => handleCoinClick(burn.denom)}
+                                                        _hover={{
+                                                            bg: "orange.50",
+                                                            _dark: { bg: "orange.950" }
+                                                        }}
+                                                        transition="all 0.2s"
+                                                    >
+                                                        <Table.Cell>
+                                                            <HStack gap="3">
+                                                                <Box
+                                                                    p="1"
+                                                                    bg="orange.50"
+                                                                    _dark={{ bg: "orange.950" }}
+                                                                    borderRadius="full"
+                                                                    width={isLP ? "52px" : "auto"}
+                                                                    display="flex"
+                                                                    justifyContent="center"
+                                                                    alignItems="center"
+                                                                >
+                                                                    <TokenLogo
+                                                                        logo={logo}
+                                                                        isLP={isLP}
+                                                                        size="32px"
+                                                                        alt={ticker}
+                                                                    />
+                                                                </Box>
+                                                                <Text fontWeight="bold" fontSize="md">{ticker}</Text>
+                                                            </HStack>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Text fontSize="md" color="fg.muted" fontWeight="medium">
+                                                                {name}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <VStack gap="0" align="start">
+                                                                <Text fontWeight="black" fontSize="md" color="orange.500">
+                                                                    {formattedAmount} {ticker}
+                                                                </Text>
+                                                                {burn.usdValue.gt(0) && (
+                                                                    <Text fontSize="sm" color="fg.muted">
+                                                                        ≈ ${formattedUsdValue}
+                                                                    </Text>
+                                                                )}
+                                                            </VStack>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <VStack gap="1" align="start">
+                                                                <Badge colorPalette="gray" variant="subtle" size="md" borderRadius="full">
+                                                                    #{burn.blockHeight}
+                                                                </Badge>
+                                                                <Text fontSize="xs" color="fg.muted">
+                                                                    {burn.timestamp}
+                                                                </Text>
+                                                            </VStack>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                );
+                                            })
+                                        )}
                                     </Table.Body>
                                 </Table.Root>
                             </Box>
 
                             {/* Mobile Card View */}
                             <Box display={{ base: "block", md: "none" }}>
-                                <VStack gap="0" align="stretch">
-                                    {mockLastBurnings.map((burn, idx) => (
-                                        <Box
-                                            key={idx}
-                                            p="4"
-                                            cursor="pointer"
-                                            onClick={() => handleCoinClick(burn.ticker.toLowerCase().startsWith('bze') ? 'ubze' : `u${burn.ticker.toLowerCase()}`)}
-                                            borderBottomWidth={idx < mockLastBurnings.length - 1 ? "2px" : "0"}
-                                            borderColor="orange.200"
-                                            _dark={{ borderColor: "orange.800" }}
-                                            _hover={{
-                                                bg: "orange.50",
-                                                _dark: { bg: "orange.950" }
-                                            }}
-                                        >
-                                            <HStack justify="space-between" mb="2">
-                                                <HStack gap="3">
-                                                    <Box
-                                                        p="1"
-                                                        bg="orange.50"
-                                                        _dark={{ bg: "orange.950" }}
-                                                        borderRadius="full"
-                                                        width={burn.isLP ? "56px" : "auto"}
-                                                        display="flex"
-                                                        justifyContent="center"
-                                                        alignItems="center"
-                                                    >
-                                                        <TokenLogo
-                                                            logo={burn.logo}
-                                                            logo2={burn.logo2}
-                                                            isLP={burn.isLP}
-                                                            size="40px"
-                                                            alt={burn.ticker}
-                                                        />
-                                                    </Box>
-                                                    <VStack gap="0" align="start">
-                                                        <Text fontWeight="bold" fontSize="md">
-                                                            {burn.ticker}
-                                                        </Text>
-                                                        <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                                                            {burn.name}
-                                                        </Text>
-                                                    </VStack>
-                                                </HStack>
-                                                <VStack gap="0" align="end">
-                                                    <Text fontWeight="black" color="orange.500" fontSize="md">
-                                                        {burn.amount}
-                                                    </Text>
-                                                    {burn.usdValue && (
-                                                        <Text fontSize="xs" color="fg.muted">
-                                                            ≈ ${burn.usdValue}
-                                                        </Text>
-                                                    )}
-                                                    <Badge colorPalette="gray" variant="subtle" size="sm" borderRadius="full" mt="1">
-                                                        #{burn.blockHeight}
-                                                    </Badge>
-                                                </VStack>
-                                            </HStack>
-                                        </Box>
-                                    ))}
-                                </VStack>
+                                {isLoadingHistory ? (
+                                    <Box p="8">
+                                        <Text textAlign="center" color="fg.muted">
+                                            Loading burn history...
+                                        </Text>
+                                    </Box>
+                                ) : lastBurnings.length === 0 ? (
+                                    <VStack gap="3" align="center" py="8">
+                                        <Text fontSize="4xl">🔍</Text>
+                                        <Text fontSize="lg" fontWeight="bold">
+                                            No Burns Yet
+                                        </Text>
+                                        <Text fontSize="sm" color="fg.muted">
+                                            Be the first to burn some tokens!
+                                        </Text>
+                                    </VStack>
+                                ) : (
+                                    <VStack gap="0" align="stretch">
+                                        {lastBurnings.map((burn, idx) => {
+                                            const asset = getAsset(burn.denom);
+                                            const ticker = asset?.ticker || burn.denom;
+                                            const name = asset?.name || burn.denom;
+                                            const logo = asset?.logo || "/images/token.svg";
+                                            const isLP = burn.denom.startsWith("ulp_");
+                                            const formattedAmount = prettyAmount(burn.amount);
+                                            const formattedUsdValue = prettyAmount(burn.usdValue);
+
+                                            return (
+                                                <Box
+                                                    key={idx}
+                                                    p="4"
+                                                    cursor="pointer"
+                                                    onClick={() => handleCoinClick(burn.denom)}
+                                                    borderBottomWidth={idx < lastBurnings.length - 1 ? "2px" : "0"}
+                                                    borderColor="orange.200"
+                                                    _dark={{ borderColor: "orange.800" }}
+                                                    _hover={{
+                                                        bg: "orange.50",
+                                                        _dark: { bg: "orange.950" }
+                                                    }}
+                                                >
+                                                    <HStack justify="space-between" mb="2">
+                                                        <HStack gap="3">
+                                                            <Box
+                                                                p="1"
+                                                                bg="orange.50"
+                                                                _dark={{ bg: "orange.950" }}
+                                                                borderRadius="full"
+                                                                width={isLP ? "56px" : "auto"}
+                                                                display="flex"
+                                                                justifyContent="center"
+                                                                alignItems="center"
+                                                            >
+                                                                <TokenLogo
+                                                                    logo={logo}
+                                                                    isLP={isLP}
+                                                                    size="40px"
+                                                                    alt={ticker}
+                                                                />
+                                                            </Box>
+                                                            <VStack gap="0" align="start">
+                                                                <Text fontWeight="bold" fontSize="md">
+                                                                    {ticker}
+                                                                </Text>
+                                                                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
+                                                                    {name}
+                                                                </Text>
+                                                            </VStack>
+                                                        </HStack>
+                                                        <VStack gap="0" align="end">
+                                                            <Text fontWeight="black" color="orange.500" fontSize="md">
+                                                                {formattedAmount}
+                                                            </Text>
+                                                            {burn.usdValue.gt(0) && (
+                                                                <Text fontSize="xs" color="fg.muted">
+                                                                    ≈ ${formattedUsdValue}
+                                                                </Text>
+                                                            )}
+                                                            <Badge colorPalette="gray" variant="subtle" size="sm" borderRadius="full" mt="1">
+                                                                #{burn.blockHeight}
+                                                            </Badge>
+                                                            <Text fontSize="xs" color="fg.muted" mt="1">
+                                                                {burn.timestamp}
+                                                            </Text>
+                                                        </VStack>
+                                                    </HStack>
+                                                </Box>
+                                            );
+                                        })}
+                                    </VStack>
+                                )}
                             </Box>
                         </Box>
                     </Box>
