@@ -28,15 +28,15 @@ export function useEpochs() {
         return epochs.get(identifier);
     }, [epochs]);
 
-    const getHourEpochInfo = useCallback((): EpochInfoSDKType | undefined => {
+    const hourEpochInfo = useMemo((): EpochInfoSDKType | undefined => {
         return epochs.get(EPOCH_HOUR);
     }, [epochs]);
 
-    const getDayEpochInfo = useCallback((): EpochInfoSDKType | undefined => {
+    const dayEpochInfo = useMemo((): EpochInfoSDKType | undefined => {
         return epochs.get(EPOCH_DAY);
     }, [epochs]);
 
-    const getWeekEpochInfo = useCallback((): EpochInfoSDKType | undefined => {
+    const weekEpochInfo = useMemo((): EpochInfoSDKType | undefined => {
         return epochs.get(EPOCH_WEEK);
     }, [epochs]);
 
@@ -74,20 +74,11 @@ export function useEpochs() {
         epochs: epochsList,
         isLoading,
         getCurrentEpoch,
-        getHourEpochInfo,
-        getDayEpochInfo,
-        getWeekEpochInfo,
+        hourEpochInfo,
+        dayEpochInfo,
+        weekEpochInfo,
         getCurrentWeekEpochEndTime,
         getPeriodicWeekEpochEndTime,
         getPeriodicEpochEndTime,
-    };
-}
-
-export function useEpochsManager() {
-    const { updateEpochs, isLoading } = useAssetsContext();
-
-    return {
-        updateEpochs,
-        isLoading,
     };
 }

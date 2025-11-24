@@ -16,10 +16,12 @@ import { RaffleInfo } from "@/components/raffle-info";
 import { useRaffles } from "@/hooks/useRaffles";
 import { useAsset } from "@/hooks/useAssets";
 import { TokenLogo } from "@/components/ui/token_logo";
+import { HighlightText } from "@/components/ui/highlight";
 import {uAmountToBigNumberAmount, prettyAmount, toBigNumber} from "@/utils/amount";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { RaffleSDKType } from "@bze/bzejs/bze/burner/raffle";
 import BigNumber from "bignumber.js";
+import {useEpochs} from "@/hooks/useEpochs";
 
 interface RaffleCardProps {
     raffle: RaffleSDKType;
@@ -147,9 +149,9 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
                                 <Text fontSize="xs" color="fg.muted" fontWeight="bold">
                                     🏆 PRIZE
                                 </Text>
-                                <Text fontSize="xl" fontWeight="black" color="orange.500">
+                                <HighlightText fontSize="xl" fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
                                     {formattedPrize}
-                                </Text>
+                                </HighlightText>
                                 <Text fontSize="xs" color="fg.muted">
                                     {ticker}
                                 </Text>
@@ -198,7 +200,10 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
 
 export default function RafflesPage() {
     const router = useRouter();
-    const { raffles, currentEpoch, isLoading } = useRaffles();
+    const { raffles, isLoading } = useRaffles();
+    const {hourEpochInfo} = useEpochs()
+
+    const currentEpoch = useMemo(() => toBigNumber(hourEpochInfo?.current_epoch ?? 0), [hourEpochInfo])
 
     const handleRaffleClick = (denom: string) => {
         router.push(`/coin?coin=${denom}`);

@@ -2,8 +2,8 @@ import {GetBlockByHeightResponseSDKType} from "@bze/bzejs/cosmos/base/tendermint
 import {getFromLocalStorage, setInLocalStorage} from "@/storage/storage";
 import {getRestClient} from "@/query/client";
 import BigNumber from "bignumber.js";
-import {getRpcURL} from "@/constants/endpoints";
 import {BlockResults} from "@/types/block";
+import {getSettings} from "@/storage/settings";
 
 
 type FailoverBlockTimes = {
@@ -46,7 +46,6 @@ export async function getBlockDetailsByHeight(height: BigNumber): Promise<GetBlo
 
 export async function getBlockTimeByHeight(height: BigNumber): Promise<Date | undefined> {
     const details = await getBlockDetailsByHeight(height);
-    console.log("block time details: ", height.toString(), details);
     if (details.block_id === undefined) {
         if (height.toFixed(0) in FAILOVER_BLOCKTIMES) {
             return new Date(FAILOVER_BLOCKTIMES[height.toFixed(0)]);
@@ -58,7 +57,8 @@ export async function getBlockTimeByHeight(height: BigNumber): Promise<Date | un
 
 
 export async function getBlockResults(height: number): Promise<BlockResults | undefined> {
-    const rpcUrl = getRpcURL().replace("wss", "https");
+    const settings = getSettings();
+    const rpcUrl = settings.endpoints.rpcEndpoint.replace("wss", "https");
     const url = `${rpcUrl}/block_results?height=${height}`;
 
     try {

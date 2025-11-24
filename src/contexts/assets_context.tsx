@@ -26,6 +26,27 @@ import {LiquidityPoolData} from "@/types/liquidity_pool";
 import {getLiquidityPools} from "@/query/liquidity_pools";
 import {calculatePoolPrice, createPoolId, poolIdFromPoolDenom} from "@/utils/liquidity_pool";
 import {EXCLUDED_MARKETS} from "@/constants/market";
+import { NextBurn} from "@/types/burn";
+import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
+import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
+import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
+import {checkAddressWonRaffle, getRaffles, getRaffleWinners} from "@/query/raffle";
+
+export interface TicketResult {
+    hasWon: boolean;
+    amount: string;
+    ticketIndex: number; // 0-based
+}
+
+export interface PendingRaffleContribution {
+    blockHeight: number;
+    tickets: number;
+    denom: string;
+    wasClosed: boolean;
+    currentTicket: number; // 0-based index of next ticket to check
+    results: TicketResult[]; // Results for tickets that have been checked
+    isComplete: boolean; // All tickets have been checked
+}
 
 export interface AssetsContextType {
     //assets
@@ -64,6 +85,26 @@ export interface AssetsContextType {
 
     connectionType: ConnectionType;
     updateConnectionType: (conn: ConnectionType) => void;
+
+    nextBurn: NextBurn | undefined;
+    updateNextBurn: () => Promise<void>;
+
+    burnHistory: BurnedCoinsSDKType[];
+    updateBurnHistory: () => Promise<void>;
+
+    raffles: Map<string, RaffleSDKType>;
+    updateRaffles: () => Promise<void>;
+
+    raffleWinners: Map<string, RaffleWinnerSDKType[]>;
+
+    pendingRaffleContributions: Map<string, PendingRaffleContribution>;
+    addPendingRaffleContribution: (denom: string, blockHeight: number, tickets: number, wasClosed: boolean) => void;
+    removePendingRaffleContribution: (denom: string) => void;
+    markRaffleContributionAsClosed: (denom: string) => void;
+    processPendingRaffleContributions: () => Promise<void>;
+
+    settingsVersion: number;
+    setSettingsVersion: (version: number) => void;
 }
 
 export const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
@@ -99,8 +140,45 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [connectionType, setConnectionType] = useState<ConnectionType>(CONNECTION_TYPE_NONE);
     const [poolsMap, setPoolsMap] = useState<Map<string, LiquidityPoolSDKType>>(new Map())
     const [poolsDataMap, setPoolsDataMap] = useState<Map<string, LiquidityPoolData>>(new Map())
+    const [nextBurn, setNextBurn] = useState<NextBurn | undefined>(undefined)
+    const [burnHistory, setBurnHistory] = useState<BurnedCoinsSDKType[]>([]);
+    const [raffles, setRaffles] = useState<Map<string, RaffleSDKType>>(new Map())
+    const [raffleWinners, setRaffleWinners] = useState<Map<string, RaffleWinnerSDKType[]>>(new Map())
+    const [pendingRaffleContributions, setPendingRaffleContributions] = useState<Map<string, PendingRaffleContribution>>(new Map())
+    const [settingsVersion, setSettingsVersion] = useState(0);
 
     const {address} = useChain(getChainName());
+
+    const doUpdateNextBurn = useCallback((next?: NextBurn) => {
+        // if (!next) return;
+        setNextBurn(next)
+    }, [setNextBurn])
+    const doUpdateBurnHistory = useCallback((history: BurnedCoinsSDKType[]) => {
+        if (history.length === 0) {
+            return;
+        }
+        setBurnHistory(history)
+    }, [])
+    const doUpdateRaffles = useCallback(async (newRaffles: RaffleSDKType[]) => {
+        //filter out raffles that are already in the context and not modified
+        const modified = newRaffles.filter((r) => {
+            const existing = raffles.get(r.denom)
+            if (!existing) {
+                return true
+            }
+
+            return r.winners === existing.winners && r.total_won === existing.total_won
+        })
+
+        setRaffles(new Map(newRaffles.map(r => [r.denom, r])));
+        const newWinners = new Map(raffleWinners)
+        for (const raffle of modified) {
+            const winners = await getRaffleWinners(raffle.denom);
+            newWinners.set(raffle.denom, winners)
+        }
+
+        setRaffleWinners(newWinners)
+    }, [raffleWinners, raffles])
 
     const doUpdateAssets = useCallback((newAssets: ChainAssets) => {
         setAssetsMap(newAssets.assets);
@@ -302,17 +380,140 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
 
         doUpdateLiquidityPools(pools)
     }, [doUpdateLiquidityPools])
+    const updateNextBurn = useCallback(async () => {
+        try {
+            const data = await getNextBurning();
+            doUpdateNextBurn(data)
+        } catch (error) {
+            console.error('Failed to fetch next burning:', error);
+            setNextBurn(undefined);
+        }
+    }, [doUpdateNextBurn])
+    const updateBurnHistory = useCallback(async () => {
+        const response = await getAllBurnedCoins();
+        doUpdateBurnHistory(response.burnedCoins)
+    }, [doUpdateBurnHistory])
+    const updateRaffles = useCallback(async () => {
+        const raffles = await getRaffles();
+        doUpdateRaffles(raffles);
+    }, [doUpdateRaffles])
+
+    const addPendingRaffleContribution = useCallback((denom: string, blockHeight: number, tickets: number, wasClosed: boolean) => {
+        setPendingRaffleContributions(prev => {
+            const newMap = new Map(prev);
+            newMap.set(denom, {
+                blockHeight,
+                tickets,
+                denom,
+                wasClosed,
+                currentTicket: 0,
+                results: [],
+                isComplete: false,
+            });
+            return newMap;
+        });
+    }, []);
+
+    const removePendingRaffleContribution = useCallback((denom: string) => {
+        setPendingRaffleContributions(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(denom);
+            return newMap;
+        });
+    }, []);
+
+    const markRaffleContributionAsClosed = useCallback((denom: string) => {
+        setPendingRaffleContributions(prev => {
+            const existing = prev.get(denom);
+            if (!existing) return prev;
+
+            const newMap = new Map(prev);
+            newMap.set(denom, { ...existing, wasClosed: true });
+            return newMap;
+        });
+    }, []);
+
+    const processPendingRaffleContributions = useCallback(async () => {
+        if (!address) return;
+
+        const contributions = Array.from(pendingRaffleContributions.values());
+        const updates: Map<string, PendingRaffleContribution> = new Map();
+
+        for (const contribution of contributions) {
+            // Skip if already complete
+            if (contribution.isComplete) continue;
+
+            // Calculate which block to check: submission block + 2 + current ticket index
+            const checkBlock = contribution.blockHeight + 2 + contribution.currentTicket;
+
+            // Try to check if this ticket won
+            const result = await checkAddressWonRaffle(address, contribution.denom, checkBlock);
+
+            // If result is undefined, the block hasn't been processed yet, skip for now
+            if (!result) continue;
+
+            // Add result to the results array
+            const newResults = [...contribution.results, {
+                hasWon: result.hasWon,
+                amount: result.amount,
+                ticketIndex: contribution.currentTicket,
+            }];
+
+            // Move to next ticket
+            const nextTicket = contribution.currentTicket + 1;
+            const isComplete = nextTicket >= contribution.tickets;
+
+            updates.set(contribution.denom, {
+                ...contribution,
+                currentTicket: nextTicket,
+                results: newResults,
+                isComplete,
+            });
+        }
+
+        // Apply all updates at once
+        if (updates.size > 0) {
+            setPendingRaffleContributions(prev => {
+                const newMap = new Map(prev);
+                updates.forEach((value, key) => {
+                    newMap.set(key, value);
+                });
+                return newMap;
+            });
+        }
+    }, [address, pendingRaffleContributions]);
 
     useEffect(() => {
         setIsLoading(true)
         //initial context loading
         const init = async () => {
-            const [assets, markets, tickers, epochsInfo, pools] = await Promise.all([getChainAssets(), getMarkets(), getAllTickers(), getEpochsInfo(), getLiquidityPools()])
+            const [
+                assets,
+                markets,
+                tickers,
+                epochsInfo,
+                pools,
+                nextBurn,
+                burnHistory,
+                raffles,
+            ] = await Promise.all([
+                getChainAssets(),
+                getMarkets(),
+                getAllTickers(),
+                getEpochsInfo(),
+                getLiquidityPools(),
+                getNextBurning(),
+                getAllBurnedCoins(),
+                getRaffles(),
+            ])
             doUpdateAssets(assets)
             doUpdateMarkets(markets)
             doUpdateMarketsData(tickers)
             doUpdateEpochs(epochsInfo.epochs)
             doUpdateLiquidityPools(pools)
+            doUpdateNextBurn(nextBurn)
+            doUpdateBurnHistory(burnHistory.burnedCoins)
+            doUpdateRaffles(raffles)
 
             setIsLoading(false)
         }
@@ -368,6 +569,20 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             updateLiquidityPools,
             poolsMap,
             poolsDataMap,
+            nextBurn,
+            updateNextBurn,
+            burnHistory,
+            updateBurnHistory,
+            raffles,
+            updateRaffles,
+            raffleWinners,
+            pendingRaffleContributions,
+            addPendingRaffleContribution,
+            removePendingRaffleContribution,
+            markRaffleContributionAsClosed,
+            processPendingRaffleContributions,
+            settingsVersion,
+            setSettingsVersion,
         }}>
             {children}
         </AssetsContext.Provider>

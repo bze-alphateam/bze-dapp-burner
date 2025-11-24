@@ -5,18 +5,25 @@ import {getChainName} from "@/constants/chain";
 import {blockchainEventManager} from "@/service/blockchain_event_manager";
 import {
     CURRENT_WALLET_BALANCE_EVENT,
+    NEXT_BURN_CHANGED_EVENT,
     ORDER_BOOK_CHANGED_EVENT,
     ORDER_EXECUTED_EVENT,
+    RAFFLE_CHANGED_EVENT,
     SUPPLY_CHANGED_EVENT,
     TendermintEvent
 } from "@/types/events";
 import {parseCoins} from "@cosmjs/amino";
 import {coins} from "@cosmjs/stargate";
 import {getChainNativeAssetDenom} from "@/constants/assets";
+import {getBurnerModuleAddress, getRaffleModuleAddress} from "@/query/module";
 
 const BLOCK_SUBSCRIPTION_ID = 1;
 const TX_RECIPIENT_SUBSCRIPTION_ID = 2;
 const TX_SENDER_SUBSCRIPTION_ID = 3;
+const BURNER_RECIPIENT_SUBSCRIPTION_ID = 4;
+const BURNER_SENDER_SUBSCRIPTION_ID = 5;
+const RAFFLE_RECIPIENT_SUBSCRIPTION_ID = 6;
+const RAFFLE_SENDER_SUBSCRIPTION_ID = 7;
 
 const buildSubscribePayload = (id: number, query: string) => {
     return {
@@ -45,11 +52,13 @@ const getMarketId = (event: TendermintEvent) => {
     return event.attributes.find(attribute => attribute.key === 'market_id')?.value.replaceAll('"', "");
 }
 
-const isAddressTransfer = (address: string, event: TendermintEvent) => {
-    if (address === '' || event.type !== 'transfer') return false;
+const isTransfer = (event: TendermintEvent) => event.type === 'transfer';
 
-    return event.attributes.find(attribute => attribute.value === address) !== undefined;
-};
+const eventHasAttributeWithValue = (event: TendermintEvent, searchValue: string) => {
+    return event.attributes.find(attribute => attribute.value === searchValue) !== undefined;
+}
+
+const isRaffleEvent = (event: TendermintEvent) => event.type.includes('Raffle');
 
 const isOrderBookEvent = (event: TendermintEvent) => {
     return event.type.includes('bze.tradebin.Order');
@@ -84,7 +93,11 @@ export function useBlockchainListener() {
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const shouldReconnectRef = useRef(true);
     const subscribedToTxRef = useRef(false);
+    const subscribedToBurnerRef = useRef(false);
+    const subscribedToRaffleRef = useRef(false);
     const previousAddressRef = useRef<string | undefined>(undefined);
+    const burnerAddressRef = useRef<string>('');
+    const raffleAddressRef = useRef<string>('');
     const [isConnected, setIsConnected] = useState(false);
 
     const maxReconnectAttempts = 10;
@@ -95,10 +108,25 @@ export function useBlockchainListener() {
         if (!events) return;
 
         for (const event of events) {
-            if (isAddressTransfer(address ?? '', event)) {
-                //the current address balance changed
-                blockchainEventManager.emit(CURRENT_WALLET_BALANCE_EVENT)
-                continue;
+            if (isTransfer(event)) {
+                if (address && address !== '' && eventHasAttributeWithValue(event, address)) {
+                    blockchainEventManager.emit(CURRENT_WALLET_BALANCE_EVENT)
+                }
+
+                if (burnerAddressRef.current !== '' && eventHasAttributeWithValue(event, burnerAddressRef.current)) {
+                    blockchainEventManager.emit(NEXT_BURN_CHANGED_EVENT)
+                }
+
+                if (raffleAddressRef.current != '' && eventHasAttributeWithValue(event, raffleAddressRef.current)) {
+                    blockchainEventManager.emit(RAFFLE_CHANGED_EVENT)
+                }
+
+                continue
+            }
+
+            if (isRaffleEvent(event)) {
+                blockchainEventManager.emit(RAFFLE_CHANGED_EVENT)
+                continue
             }
 
             if (isBurnEvent(event)) {
@@ -173,6 +201,76 @@ export function useBlockchainListener() {
         subscribedToTxRef.current = false;
     }, []);
 
+    const subscribeBurnerEvents = useCallback((burnerAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (subscribedToBurnerRef.current) return;
+        if (!burnerAddress || burnerAddress === '') return;
+
+        // Subscribe to burner recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${burnerAddress}'`;
+        const recipientPayload = buildSubscribePayload(BURNER_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Subscribe to burner sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${burnerAddress}'`;
+        const senderPayload = buildSubscribePayload(BURNER_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToBurnerRef.current = true;
+    }, []);
+
+    const unsubscribeBurnerEvents = useCallback((burnerAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (!subscribedToBurnerRef.current) return;
+
+        // Unsubscribe from burner recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${burnerAddress}'`;
+        const recipientPayload = buildUnsubscribePayload(BURNER_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Unsubscribe from burner sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${burnerAddress}'`;
+        const senderPayload = buildUnsubscribePayload(BURNER_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToBurnerRef.current = false;
+    }, []);
+
+    const subscribeRaffleEvents = useCallback((raffleAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (subscribedToRaffleRef.current) return;
+        if (!raffleAddress || raffleAddress === '') return;
+
+        // Subscribe to raffle recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${raffleAddress}'`;
+        const recipientPayload = buildSubscribePayload(RAFFLE_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Subscribe to raffle sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${raffleAddress}'`;
+        const senderPayload = buildSubscribePayload(RAFFLE_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToRaffleRef.current = true;
+    }, []);
+
+    const unsubscribeRaffleEvents = useCallback((raffleAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (!subscribedToRaffleRef.current) return;
+
+        // Unsubscribe from raffle recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${raffleAddress}'`;
+        const recipientPayload = buildUnsubscribePayload(RAFFLE_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Unsubscribe from raffle sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${raffleAddress}'`;
+        const senderPayload = buildUnsubscribePayload(RAFFLE_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToRaffleRef.current = false;
+    }, []);
+
     const reconnect = useCallback(() => {
         if (!shouldReconnectRef.current) return;
 
@@ -220,6 +318,16 @@ export function useBlockchainListener() {
                 subscribeTxEvents(address);
             }
 
+            // Subscribe to burner events if burner address is available
+            if (burnerAddressRef.current !== '') {
+                subscribeBurnerEvents(burnerAddressRef.current);
+            }
+
+            // Subscribe to raffle events if raffle address is available
+            if (raffleAddressRef.current !== '') {
+                subscribeRaffleEvents(raffleAddressRef.current);
+            }
+
             // Reset reconnect attempts on successful connection
             reconnectAttemptsRef.current = 0;
             setIsConnected(true); // Set connected
@@ -245,6 +353,7 @@ export function useBlockchainListener() {
 
             //tx events from Tx subscription
             if (data?.result?.data?.value?.TxResult?.result?.events) {
+                console.log("tx event from tx subscription", data)
                 onBlockEvent(data.result.data.value.TxResult.result.events)
             }
         };
@@ -252,6 +361,8 @@ export function useBlockchainListener() {
         wsRef.current.onclose = (event) => {
             console.log('WebSocket disconnected', event.code, event.reason);
             subscribedToTxRef.current = false;
+            subscribedToBurnerRef.current = false;
+            subscribedToRaffleRef.current = false;
             setIsConnected(false);
 
             // Only reconnect if it wasn't a manual close (code 1000)
@@ -266,7 +377,7 @@ export function useBlockchainListener() {
             // Close the connection to trigger reconnect via onclose
             wsRef.current?.close();
         };
-    }, [reconnect, address, subscribeTxEvents, onBlockEvent]);
+    }, [reconnect, address, subscribeTxEvents, subscribeBurnerEvents, subscribeRaffleEvents, onBlockEvent]);
 
     // Handle address changes
     useEffect(() => {
@@ -288,6 +399,42 @@ export function useBlockchainListener() {
             previousAddressRef.current = currentAddress;
         }
     }, [address, subscribeTxEvents, unsubscribeTxEvents]);
+
+    // Fetch burner address on mount
+    useEffect(() => {
+        const fetchBurnerAddress = async () => {
+            const burnerAddr = await getBurnerModuleAddress();
+            burnerAddressRef.current = burnerAddr;
+
+            // If already connected, subscribe to burner events
+            if (wsRef.current?.readyState === WebSocket.OPEN && burnerAddr !== '') {
+                subscribeBurnerEvents(burnerAddr);
+            }
+        };
+
+        fetchBurnerAddress();
+        return () => {
+            unsubscribeBurnerEvents(burnerAddressRef.current);
+        }
+    }, [subscribeBurnerEvents, unsubscribeBurnerEvents]);
+
+    // Fetch raffle address on mount
+    useEffect(() => {
+        const fetchRaffleAddress = async () => {
+            const raffleAddr = await getRaffleModuleAddress();
+            raffleAddressRef.current = raffleAddr;
+
+            // If already connected, subscribe to raffle events
+            if (wsRef.current?.readyState === WebSocket.OPEN && raffleAddr !== '') {
+                subscribeRaffleEvents(raffleAddr);
+            }
+        };
+
+        fetchRaffleAddress();
+        return () => {
+            unsubscribeRaffleEvents(raffleAddressRef.current);
+        }
+    }, [subscribeRaffleEvents, unsubscribeRaffleEvents]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;

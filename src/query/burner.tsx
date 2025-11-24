@@ -7,9 +7,9 @@ import {PageRequest} from "@bze/bzejs/cosmos/base/query/v1beta1/pagination";
 import {getBurnerModuleAddress} from "@/query/module";
 import {NextBurn} from "@/types/burn";
 import {getAddressBalances} from "@/query/bank";
-import {getHourEpochInfo, getPeriodicWeekEpochEndTime} from "@/query/epoch";
+import {getPeriodicWeekEpochEndTime} from "@/query/epoch";
 import {toBigNumber} from "@/utils/amount";
-import BigNumber from "bignumber.js";
+
 
 const BURNED_KEY = 'burner:all_burned_coins';
 const BURN_EPOCH_COUNT = 4;
@@ -101,12 +101,4 @@ async function getBurningTimeFromEpoch(): Promise<Date|undefined> {
     }
 
     return await getPeriodicWeekEpochEndTime(defaultBurningMod);
-}
-
-
-export async function getBurnerCurrentEpoch(): Promise<BigNumber> {
-    //burner uses hour epoch
-    const epoch = await getHourEpochInfo()
-
-    return toBigNumber(epoch?.current_epoch ?? 0);
 }

@@ -88,16 +88,6 @@ export function useAsset(denom: string) {
     };
 }
 
-
-// Hook for managing/writing assets data
-export function useAssetsManager() {
-    const { updateAssets, isLoading } = useAssetsContext();
-    return {
-        updateAssets,
-        isLoading
-    };
-}
-
 export function useIBCChains() {
     const {ibcChains, isLoading} = useAssetsContext()
 

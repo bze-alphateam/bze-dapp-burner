@@ -4,5 +4,5 @@ export const getMarketOrderBookChangedEvent = (marketId: string) => getMarketEve
 export const getMarketEventKey = (eventType: string, marketId: string) => `${eventType}:${marketId}`
 
 export const mapEventAttributes = (attributes: Attribute[]): Record<string, string> => {
-    return attributes.reduce((acc, attr) => ({ ...acc, [attr.key]: attr.value }), {});
+    return attributes.reduce((acc, attr) => ({ ...acc, [attr.key]: attr.value.replace('\"', '').replace('\"', '') }), {});
 }
