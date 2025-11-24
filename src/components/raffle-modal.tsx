@@ -21,6 +21,7 @@ import { useBalance } from "@/hooks/useBalances";
 import { useAsset } from "@/hooks/useAssets";
 import { toBigNumber, uAmountToBigNumberAmount } from "@/utils/amount";
 import BigNumber from "bignumber.js";
+import {sanitizeIntegerInput} from "@/utils/number";
 
 interface RaffleModalProps {
     isOpen: boolean;
@@ -81,8 +82,7 @@ export const RaffleModal = ({
     }, [userBalance, totalCost]);
 
     const handleContributionsChange = (value: string) => {
-        const sanitized = value.replace(/[^0-9]/g, '');
-        setNumContributions(sanitized);
+        setNumContributions(value);
         setContributionsError("");
     };
 
@@ -180,17 +180,20 @@ export const RaffleModal = ({
                                 {address && asset && (
                                     <Box
                                         p="3"
-                                        bg="purple.50"
-                                        _dark={{ bg: "gray.800", borderColor: "purple.500" }}
+                                        bg="orange.50"
+                                        _dark={{
+                                            bg: "gray.800",
+                                            borderColor: "orange.500"
+                                        }}
                                         borderRadius="lg"
                                         borderWidth="1px"
-                                        borderColor="purple.300"
+                                        borderColor="orange.300"
                                     >
                                         <HStack justify="space-between">
                                             <Text fontSize="sm" fontWeight="medium">
                                                 Available Balance:
                                             </Text>
-                                            <Text fontSize="sm" fontWeight="bold" color="purple.500">
+                                            <Text fontSize="sm" fontWeight="bold" color="orange.500" _dark={{ color: "orange.300" }}>
                                                 {userBalance.toFixed(2)} {ticker}
                                             </Text>
                                         </HStack>
@@ -203,10 +206,10 @@ export const RaffleModal = ({
                                         <Field.Label fontWeight="semibold">Number of Contributions</Field.Label>
                                         <Input
                                             size="lg"
-                                            type="number"
+                                            type="text"
                                             min="1"
                                             value={numContributions}
-                                            onChange={(e) => handleContributionsChange(e.target.value)}
+                                            onChange={(e) => handleContributionsChange(sanitizeIntegerInput(e.target.value))}
                                             placeholder="1"
                                             disabled={isSubmitting || !address}
                                         />

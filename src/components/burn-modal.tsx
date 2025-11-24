@@ -29,6 +29,7 @@ import {getChainName} from "@/constants/chain";
 import {useToast} from "@/hooks/useToast";
 import {bze} from '@bze/bzejs'
 import {useBZETx} from "@/hooks/useTx";
+import {sanitizeNumberInput} from "@/utils/number";
 
 interface BurnModalProps {
     isOpen: boolean;
@@ -218,9 +219,7 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
     }, [selectedAsset, selectedBalance, denomDecimals]);
 
     const handleAmountChange = (value: string) => {
-        // Allow only numbers and decimals
-        const sanitized = value.replace(/[^0-9.]/g, '');
-        setAmount(sanitized);
+        setAmount(value);
         setAmountError("");
     };
 
@@ -401,7 +400,7 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                                 size="lg"
                                                 placeholder={selectedAsset ? `0.00 ${selectedAsset.ticker}` : "0.00"}
                                                 value={amount}
-                                                onChange={(e) => handleAmountChange(e.target.value)}
+                                                onChange={(e) => handleAmountChange(sanitizeNumberInput(e.target.value))}
                                                 disabled={!selectedCoin || isSubmitting || !hasBalance}
                                             />
                                             <Button
