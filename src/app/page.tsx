@@ -26,6 +26,7 @@ import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
 import { TokenLogo } from "@/components/ui/token_logo";
 import { LPTokenLogo } from "@/components/ui/lp_token_logo";
+import { HighlightText } from "@/components/ui/highlight";
 import { isLpDenom } from "@/utils/denom";
 import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
 
@@ -250,9 +251,9 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
                     <Text fontSize="xs" color="fg.muted" textTransform="uppercase" fontWeight="bold">
                         Ready to Burn
                     </Text>
-                    <Text fontSize="2xl" fontWeight="black" color="orange.500">
+                    <HighlightText fontSize="2xl" fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
                         {prettyAmountValue}
-                    </Text>
+                    </HighlightText>
                     {prettyUsdValue && (
                         <Text fontSize="sm" color="fg.muted" fontWeight="medium">
                             ≈ ${prettyUsdValue}
@@ -470,9 +471,9 @@ export default function BurnerHomePage() {
                                     </Text>
                                 ) : (
                                     <VStack gap="1" align="center">
-                                        <Text fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }} fontWeight="black" color="orange.500">
+                                        <HighlightText fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
                                             {prettyAmount(totalBzeBurned)}
-                                        </Text>
+                                        </HighlightText>
                                         {totalBzeUsdValue.gt(0) && (
                                             <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
                                                 ≈ ${prettyAmount(totalBzeUsdValue)}

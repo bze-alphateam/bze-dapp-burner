@@ -38,6 +38,8 @@ export function BlockchainListenerWrapper() {
                 updateBalances()
                 updateMarketsData()
                 updateAssets()
+                updateNextBurn()
+                updateRaffles()
 
                 //reset the fallback debounce time
                 //this will start the fallback again, resetting the timer when it should trigger

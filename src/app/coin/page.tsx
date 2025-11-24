@@ -15,6 +15,8 @@ import {
 } from "@chakra-ui/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {useCallback, useMemo, useState} from "react";
+import { useChain } from "@interchain-kit/react";
+import { getChainName } from "@/constants/chain";
 import { BurnModal } from "@/components/burn-modal";
 import { RaffleModal } from "@/components/raffle-modal";
 import { RaffleInfoModal } from "@/components/raffle-info-modal";
@@ -25,6 +27,7 @@ import { useNextBurning } from "@/hooks/useNextBurning";
 import {useRaffle} from "@/hooks/useRaffles";
 import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount, toBigNumber } from "@/utils/amount";
+import { HighlightText } from "@/components/ui/highlight";
 import { truncateDenom } from "@/utils/denom";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { truncateAddress } from "@/utils/address";
@@ -36,6 +39,7 @@ export default function CoinDetailPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const denom = searchParams.get('coin') || '';
+    const { address } = useChain(getChainName());
 
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
     const [isRaffleModalOpen, setIsRaffleModalOpen] = useState(false);
@@ -122,6 +126,7 @@ export default function CoinDetailPage() {
 
         // Format winners
         const formattedWinners = winners.sort((a, b) => parseInt(b.index) - parseInt(a.index)).slice(0, WINNERS_LIST_MAX_LEN).map(w => ({
+            fullAddress: w.winner,
             address: truncateAddress(w.winner),
             amount: prettyAmount(uAmountToBigNumberAmount(w.amount, decimals))
         }));
@@ -337,9 +342,9 @@ export default function CoinDetailPage() {
                                                         <Text fontSize="xs" color="fg.muted" fontWeight="bold">
                                                             🏆 Prize
                                                         </Text>
-                                                        <Text fontSize="2xl" fontWeight="black" color="orange.500">
+                                                        <HighlightText fontSize="2xl" fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
                                                             {raffleData.currentPrize}
-                                                        </Text>
+                                                        </HighlightText>
                                                         <Text fontSize="xs" color="fg.muted">
                                                             {asset.ticker}
                                                         </Text>
@@ -379,9 +384,9 @@ export default function CoinDetailPage() {
                                                         <Text fontSize="xs" color="fg.muted" fontWeight="bold">
                                                             💰 TOTAL WON
                                                         </Text>
-                                                        <Text fontSize="2xl" fontWeight="black" color="green.500">
+                                                        <HighlightText fontSize="2xl" fontWeight="black" color="green.500" highlightColor="green.500" highlightIntensity="evident">
                                                             {raffleData.totalWon}
-                                                        </Text>
+                                                        </HighlightText>
                                                         <Text fontSize="xs" color="fg.muted">
                                                             by {raffleData.numWinners} winners
                                                         </Text>
@@ -396,23 +401,38 @@ export default function CoinDetailPage() {
                                                         🎉 Last {WINNERS_LIST_MAX_LEN} Winners
                                                     </Text>
                                                     <VStack gap="2" align="stretch">
-                                                        {raffleData.winners.map((winner, idx) => (
-                                                            <HStack
-                                                                key={idx}
-                                                                justify="space-between"
-                                                                p="3"
-                                                                bg="white"
-                                                                _dark={{ bg: "gray.800" }}
-                                                                borderRadius="md"
-                                                            >
-                                                                <Text fontSize="sm" fontFamily="mono" color="fg.muted">
-                                                                    {idx + 1}. {winner.address}
-                                                                </Text>
-                                                                <Text fontSize="sm" fontWeight="bold" color="green.500">
-                                                                    +{winner.amount} {asset.ticker}
-                                                                </Text>
-                                                            </HStack>
-                                                        ))}
+                                                        {raffleData.winners.map((winner, idx) => {
+                                                            const isCurrentUser = address && winner.fullAddress === address;
+                                                            return (
+                                                                <HStack
+                                                                    key={idx}
+                                                                    justify="space-between"
+                                                                    p="3"
+                                                                    bg="white"
+                                                                    _dark={{ bg: "gray.800" }}
+                                                                    borderRadius="md"
+                                                                    borderWidth={isCurrentUser ? "1px" : "0"}
+                                                                    borderColor={isCurrentUser ? "green.300" : "transparent"}
+                                                                    _light={{
+                                                                        borderColor: isCurrentUser ? "green.400" : "transparent"
+                                                                    }}
+                                                                >
+                                                                    <HStack gap="2">
+                                                                        <Text fontSize="sm" fontFamily="mono" color="fg.muted" fontWeight={isCurrentUser ? "semibold" : "normal"}>
+                                                                            {idx + 1}. {winner.address}
+                                                                        </Text>
+                                                                        {isCurrentUser && (
+                                                                            <Badge colorPalette="green" size="xs" variant="subtle">
+                                                                                YOU
+                                                                            </Badge>
+                                                                        )}
+                                                                    </HStack>
+                                                                    <Text fontSize="sm" fontWeight="bold" color="green.500">
+                                                                        +{winner.amount} {asset.ticker}
+                                                                    </Text>
+                                                                </HStack>
+                                                            );
+                                                        })}
                                                     </VStack>
                                                 </Box>
                                             )}
@@ -450,9 +470,9 @@ export default function CoinDetailPage() {
                                     </Text>
                                 ) : (
                                     <VStack gap="1" align="center">
-                                        <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500">
+                                        <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
                                             {prettyAmount(totalBurned)}
-                                        </Text>
+                                        </HighlightText>
                                         {totalBurnedUsdValue.gt(0) && (
                                             <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
                                                 ≈ ${prettyAmount(totalBurnedUsdValue)}
@@ -496,9 +516,9 @@ export default function CoinDetailPage() {
                                         <Text fontSize="sm" color="fg.muted" fontWeight="medium">
                                             Ready to burn
                                         </Text>
-                                        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="black" color="orange.500">
+                                        <HighlightText fontSize={{ base: "2xl", md: "3xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
                                             {prettyAmount(nextCoinBurn.amount)} {asset.ticker}
-                                        </Text>
+                                        </HighlightText>
                                         {nextCoinBurn.usdValue.gt(0) && (
                                             <Text fontSize={{ base: "sm", md: "md" }} color="fg.muted" fontWeight="medium">
                                                 ≈ ${prettyAmount(nextCoinBurn.usdValue)}
