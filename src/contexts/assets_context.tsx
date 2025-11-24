@@ -29,6 +29,8 @@ import {EXCLUDED_MARKETS} from "@/constants/market";
 import { NextBurn} from "@/types/burn";
 import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
 import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
+import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
+import {getRaffles, getRaffleWinners} from "@/query/raffle";
 
 export interface AssetsContextType {
     //assets
@@ -73,6 +75,11 @@ export interface AssetsContextType {
 
     burnHistory: BurnedCoinsSDKType[];
     updateBurnHistory: () => Promise<void>;
+
+    raffles: Map<string, RaffleSDKType>;
+    updateRaffles: () => Promise<void>;
+
+    raffleWinners: Map<string, RaffleWinnerSDKType[]>;
 }
 
 export const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
@@ -110,6 +117,8 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [poolsDataMap, setPoolsDataMap] = useState<Map<string, LiquidityPoolData>>(new Map())
     const [nextBurn, setNextBurn] = useState<NextBurn | undefined>(undefined)
     const [burnHistory, setBurnHistory] = useState<BurnedCoinsSDKType[]>([]);
+    const [raffles, setRaffles] = useState<Map<string, RaffleSDKType>>(new Map())
+    const [raffleWinners, setRaffleWinners] = useState<Map<string, RaffleWinnerSDKType[]>>(new Map())
 
     const {address} = useChain(getChainName());
 
@@ -117,13 +126,33 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         if (!next) return;
         setNextBurn(next)
     }, [])
-
     const doUpdateBurnHistory = useCallback((history: BurnedCoinsSDKType[]) => {
         if (history.length === 0) {
             return;
         }
         setBurnHistory(history)
     }, [])
+    const doUpdateRaffles = useCallback(async (newRaffles: RaffleSDKType[]) => {
+        setRaffles(new Map(newRaffles.map(r => [r.denom, r])));
+
+        //filter out raffles that are already in the context and not modified
+        const modified = newRaffles.filter((r) => {
+            const existing = raffles.get(r.denom)
+            if (!existing) {
+                return true
+            }
+
+            return r.winners === existing.winners && r.total_won === existing.total_won
+        })
+
+        const newWinners = new Map(raffleWinners)
+        for (const raffle of modified) {
+            const winners = await getRaffleWinners(raffle.denom);
+            newWinners.set(raffle.denom, winners)
+        }
+
+        setRaffleWinners(newWinners)
+    }, [raffleWinners, raffles])
 
     const doUpdateAssets = useCallback((newAssets: ChainAssets) => {
         setAssetsMap(newAssets.assets);
@@ -338,6 +367,10 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         const response = await getAllBurnedCoins();
         doUpdateBurnHistory(response.burnedCoins)
     }, [doUpdateBurnHistory])
+    const updateRaffles = useCallback(async () => {
+        const raffles = await getRaffles();
+        doUpdateRaffles(raffles);
+    }, [doUpdateRaffles])
 
     useEffect(() => {
         setIsLoading(true)
@@ -350,7 +383,8 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
                 epochsInfo,
                 pools,
                 nextBurn,
-                burnHistory
+                burnHistory,
+                raffles,
             ] = await Promise.all([
                 getChainAssets(),
                 getMarkets(),
@@ -358,7 +392,8 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
                 getEpochsInfo(),
                 getLiquidityPools(),
                 getNextBurning(),
-                getAllBurnedCoins()
+                getAllBurnedCoins(),
+                getRaffles(),
             ])
             doUpdateAssets(assets)
             doUpdateMarkets(markets)
@@ -367,6 +402,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             doUpdateLiquidityPools(pools)
             doUpdateNextBurn(nextBurn)
             doUpdateBurnHistory(burnHistory.burnedCoins)
+            doUpdateRaffles(raffles)
 
             setIsLoading(false)
         }
@@ -425,7 +461,10 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             nextBurn,
             updateNextBurn,
             burnHistory,
-            updateBurnHistory
+            updateBurnHistory,
+            raffles,
+            updateRaffles,
+            raffleWinners
         }}>
             {children}
         </AssetsContext.Provider>

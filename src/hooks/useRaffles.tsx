@@ -1,79 +1,39 @@
-import {useState, useEffect, useCallback} from "react";
-import { getRaffles, getRaffleWinners } from "@/query/raffle";
-import { getBurnerCurrentEpoch } from "@/query/burner";
-import { RaffleSDKType, RaffleWinnerSDKType } from "@bze/bzejs/bze/burner/raffle";
+import { useMemo } from "react";
+import { useAssetsContext } from "@/hooks/useAssets";
+import { toBigNumber } from "@/utils/amount";
 import BigNumber from "bignumber.js";
 
 export function useRaffles() {
-    const [raffles, setRaffles] = useState<RaffleSDKType[]>([]);
-    const [currentEpoch, setCurrentEpoch] = useState<BigNumber>(BigNumber(0));
-    const [isLoading, setIsLoading] = useState(true);
+    const { raffles: rafflesMap, epochs, isLoading, updateRaffles } = useAssetsContext();
 
-    const load = useCallback(async () => {
-        try {
-            const [rafflesData, epochData] = await Promise.all([
-                getRaffles(),
-                getBurnerCurrentEpoch()
-            ]);
-            setRaffles(rafflesData || []);
-            setCurrentEpoch(epochData);
-        } catch (error) {
-            console.error('Failed to fetch raffles:', error);
-            setRaffles([]);
-            setCurrentEpoch(BigNumber(0));
-        }
-    }, [])
+    const raffles = useMemo(() => {
+        return Array.from(rafflesMap.values());
+    }, [rafflesMap]);
 
-    useEffect(() => {
-        const fetchRaffles = async () => {
-            setIsLoading(true);
-            await load();
-            setIsLoading(false);
-        };
-
-        fetchRaffles();
-    }, [load]);
+    const currentEpoch = useMemo(() => {
+        const hourEpoch = epochs.get('hour');
+        if (!hourEpoch) return BigNumber(0);
+        return toBigNumber(hourEpoch.current_epoch);
+    }, [epochs]);
 
     return {
         raffles,
         currentEpoch,
         isLoading,
-        reload: load,
+        reload: updateRaffles,
     };
 }
 
 export function useRaffleWinners(denom: string) {
-    const [winners, setWinners] = useState<RaffleWinnerSDKType[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { raffleWinners, isLoading } = useAssetsContext();
 
-    const load = useCallback(async () => {
-        if (!denom) {
-            setWinners([]);
-            return;
-        }
-
-        try {
-            const data = await getRaffleWinners(denom);
-            setWinners(data || []);
-        } catch (error) {
-            console.error('Failed to fetch raffle winners:', error);
-            setWinners([]);
-        }
-    }, [denom])
-
-    useEffect(() => {
-        const fetchWinners = async () => {
-            setIsLoading(true);
-            await load();
-            setIsLoading(false);
-        };
-
-        fetchWinners();
-    }, [load]);
+    const winners = useMemo(() => {
+        if (!denom) return [];
+        return raffleWinners.get(denom) || [];
+    }, [raffleWinners, denom]);
 
     return {
         winners,
         isLoading,
-        reload: load,
     };
 }
