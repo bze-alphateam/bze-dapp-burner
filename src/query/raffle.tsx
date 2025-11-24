@@ -35,7 +35,7 @@ interface RaffleResult {
     address: string;
 }
 
-export async function checkAddressWonRaffle(address: string, denom: string, height: number): Promise<RaffleResult> {
+export async function checkAddressWonRaffle(address: string, denom: string, height: number): Promise<RaffleResult|undefined> {
     const response = {
         hasWon: false,
         amount: "0",
@@ -43,26 +43,25 @@ export async function checkAddressWonRaffle(address: string, denom: string, heig
         address: address,
     };
     if (address == "" || height <= 0) {
-        return response;
+        return undefined;
     }
 
     const blockResults = await getBlockResults(height);
     if (!blockResults) {
-        console.error('got invalid block results from rpc');
-        return response;
+        return undefined;
     }
 
     if (!blockResults.result?.finalize_block_events) {
-        return response;
+        return undefined;
     }
 
     if (blockResults.result.finalize_block_events.length === 0) {
-        return response;
+        return undefined;
     }
 
     const raffleEvents = blockResults.result.finalize_block_events.filter(ev => ev.type.includes('Raffle'));
     if (!raffleEvents || raffleEvents.length === 0) {
-        return response;
+        return undefined;
     }
 
     for (let i = 0; i < raffleEvents.length; i++) {

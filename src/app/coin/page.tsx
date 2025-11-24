@@ -14,17 +14,18 @@ import {
     Grid,
 } from "@chakra-ui/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {useCallback, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import { useChain } from "@interchain-kit/react";
 import { getChainName } from "@/constants/chain";
 import { BurnModal } from "@/components/burn-modal";
 import { RaffleModal } from "@/components/raffle-modal";
 import { RaffleInfoModal } from "@/components/raffle-info-modal";
+import { RaffleResultAnimation } from "@/components/raffle-result-animation";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useNextBurning } from "@/hooks/useNextBurning";
-import {useRaffle} from "@/hooks/useRaffles";
+import {useRaffle, useRaffleContributions} from "@/hooks/useRaffles";
 import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount, toBigNumber } from "@/utils/amount";
 import { HighlightText } from "@/components/ui/highlight";
@@ -44,6 +45,8 @@ export default function CoinDetailPage() {
     const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
     const [isRaffleModalOpen, setIsRaffleModalOpen] = useState(false);
     const [isRaffleInfoModalOpen, setIsRaffleInfoModalOpen] = useState(false);
+    const [showRaffleAnimation, setShowRaffleAnimation] = useState<'win' | 'lose' | 'waiting' | 'summary' | null>(null);
+    const [currentResultIndex, setCurrentResultIndex] = useState(0); // Track which result we're displaying
 
     // Get asset from useAssets
     const { getAsset, denomDecimals, isLoading: isLoadingAssets } = useAssets();
@@ -61,6 +64,9 @@ export default function CoinDetailPage() {
 
     // Fetch raffle winners if there's a raffle for this coin
     const { winners, raffle: coinRaffle, isLoading: isLoadingRaffles } = useRaffle(denom || '');
+
+    // Raffle contributions management
+    const { getPendingContribution, removePendingContribution } = useRaffleContributions();
 
     // Get next burning info for this specific coin
     const nextCoinBurn = useMemo(() => {
@@ -143,6 +149,42 @@ export default function CoinDetailPage() {
         };
     }, [coinRaffle, asset, currentEpoch, winners]);
 
+    // Check for pending raffle contribution and manage animation state
+    useEffect(() => {
+        if (!denom || !asset) return;
+
+        const pendingContribution = getPendingContribution(denom);
+
+        // If no pending contribution or it was closed, hide animation
+        if (!pendingContribution || pendingContribution.wasClosed) {
+            setShowRaffleAnimation(null);
+            setCurrentResultIndex(0);
+            return;
+        }
+
+        // If there are results to display
+        if (pendingContribution.results.length > 0) {
+            // Check if all results have been displayed
+            if (currentResultIndex >= pendingContribution.results.length && pendingContribution.isComplete) {
+                // Show summary
+                setShowRaffleAnimation('summary');
+                return;
+            }
+
+            // Check if we have a result to display at current index
+            if (currentResultIndex < pendingContribution.results.length) {
+                const result = pendingContribution.results[currentResultIndex];
+                setShowRaffleAnimation(result.hasWon ? 'win' : 'lose');
+            } else {
+                // Waiting for more results
+                setShowRaffleAnimation('waiting');
+            }
+        } else {
+            // No results yet, show waiting
+            setShowRaffleAnimation('waiting');
+        }
+    }, [denom, asset, getPendingContribution, currentResultIndex]);
+
     const handleRaffleClick = useCallback(() => {
         if (raffleData) {
             setIsRaffleModalOpen(true);
@@ -152,6 +194,69 @@ export default function CoinDetailPage() {
     const onModalClose = useCallback(() => {
         setIsBurnModalOpen(false);
     }, [])
+
+    const handleRaffleAnimationClose = useCallback(() => {
+        if (denom) {
+            // Remove the pending contribution when user closes
+            removePendingContribution(denom);
+        }
+        setShowRaffleAnimation(null);
+        setCurrentResultIndex(0);
+    }, [denom, removePendingContribution]);
+
+    const handleNextTicket = useCallback(() => {
+        // Move to the next result
+        setCurrentResultIndex(prev => prev + 1);
+    }, []);
+
+    // Get current raffle contribution data for animation
+    const currentRaffleContribution = useMemo(() => {
+        if (!denom) return null;
+        return getPendingContribution(denom);
+    }, [denom, getPendingContribution]);
+
+    // Get current result amount (if any)
+    const currentResultAmount = useMemo(() => {
+        if (!currentRaffleContribution || !asset) return undefined;
+
+        const results = currentRaffleContribution.results;
+        if (currentResultIndex >= results.length) return undefined;
+
+        const result = results[currentResultIndex];
+        if (!result.hasWon) return undefined;
+
+        // Convert amount to display format
+        const decimals = asset.decimals || 6;
+        const bnAmount = uAmountToBigNumberAmount(result.amount, decimals);
+        return prettyAmount(bnAmount);
+    }, [currentRaffleContribution, currentResultIndex, asset]);
+
+    // Calculate summary data
+    const summaryData = useMemo(() => {
+        if (!currentRaffleContribution || !asset) return null;
+
+        const results = currentRaffleContribution.results;
+        let totalWonAmount = BigNumber(0);
+        let winnersCount = 0;
+        let losersCount = 0;
+
+        results.forEach(result => {
+            if (result.hasWon) {
+                winnersCount++;
+                const decimals = asset.decimals || 6;
+                const amount = uAmountToBigNumberAmount(result.amount, decimals);
+                totalWonAmount = totalWonAmount.plus(amount);
+            } else {
+                losersCount++;
+            }
+        });
+
+        return {
+            totalWon: totalWonAmount.gt(0) ? prettyAmount(totalWonAmount) : undefined,
+            winnersCount,
+            losersCount,
+        };
+    }, [currentRaffleContribution, asset]);
 
     // Show loading state
     if (isLoadingAssets) {
@@ -255,14 +360,16 @@ export default function CoinDetailPage() {
                                         </VStack>
                                     </HStack>
 
-                                    <Button
-                                        size="lg"
-                                        colorPalette="orange"
-                                        onClick={() => setIsBurnModalOpen(true)}
-                                        fontWeight="bold"
-                                    >
-                                        🔥 Burn {asset.ticker}
-                                    </Button>
+                                    {!raffleData && (
+                                        <Button
+                                            size="lg"
+                                            colorPalette="orange"
+                                            onClick={() => setIsBurnModalOpen(true)}
+                                            fontWeight="bold"
+                                        >
+                                            🔥 Burn {asset.ticker}
+                                        </Button>
+                                    )}
                                 </HStack>
                             </VStack>
                         </Card.Body>
@@ -715,6 +822,23 @@ export default function CoinDetailPage() {
                 isOpen={isRaffleInfoModalOpen}
                 onClose={() => setIsRaffleInfoModalOpen(false)}
             />
+
+            {/* Raffle Result Animation */}
+            {showRaffleAnimation && asset && currentRaffleContribution && summaryData && raffleData && (
+                <RaffleResultAnimation
+                    result={showRaffleAnimation}
+                    ticker={asset.ticker}
+                    amount={currentResultAmount}
+                    currentContribution={currentResultIndex + 1}
+                    totalContributions={currentRaffleContribution.tickets}
+                    onComplete={handleRaffleAnimationClose}
+                    onNextContribution={handleNextTicket}
+                    totalWon={summaryData.totalWon}
+                    winnersCount={summaryData.winnersCount}
+                    losersCount={summaryData.losersCount}
+                    contributionPrice={raffleData.contributionPrice}
+                />
+            )}
         </Box>
     );
 }

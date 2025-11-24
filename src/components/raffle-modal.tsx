@@ -22,6 +22,7 @@ import { useAsset } from "@/hooks/useAssets";
 import { toBigNumber, uAmountToBigNumberAmount } from "@/utils/amount";
 import BigNumber from "bignumber.js";
 import {sanitizeIntegerInput} from "@/utils/number";
+import {useRaffleContributions} from "@/hooks/useRaffles";
 
 interface RaffleModalProps {
     isOpen: boolean;
@@ -53,6 +54,7 @@ export const RaffleModal = ({
     const { tx } = useBZETx();
     const { balance } = useBalance(denom);
     const { asset } = useAsset(denom);
+    const {addPendingRaffleContribution} = useRaffleContributions()
 
     // Reset state when modal opens
     useEffect(() => {
@@ -112,11 +114,16 @@ export const RaffleModal = ({
         });
 
         setIsSubmitting(true);
-        await tx([msg]);
+        await tx([msg], {
+            onSuccess: (submitResult) => {
+                //add 2 to block height, that's when the blockchain checks if the user is a raffle winner.
+                addPendingRaffleContribution(denom, submitResult.height, toBigNumber(numContributions).toNumber(), false)
+            }
+        });
         setIsSubmitting(false);
         onClose();
 
-    }, [address, numContributions, hasEnoughBalance, totalCost, ticker, denom, tx, onClose, toast]);
+    }, [address, numContributions, hasEnoughBalance, totalCost, ticker, denom, tx, onClose, toast, addPendingRaffleContribution]);
 
     const handleClose = () => {
         if (!isSubmitting) {

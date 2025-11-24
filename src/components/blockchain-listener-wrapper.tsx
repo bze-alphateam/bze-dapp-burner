@@ -12,7 +12,7 @@ const POLLING_INTERVAL = 10 * 1000;
 
 export function BlockchainListenerWrapper() {
     const {isConnected} = useBlockchainListener();
-    const {updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles} = useAssetsContext()
+    const {updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles, processPendingRaffleContributions} = useAssetsContext()
 
     useEffect(() => {
         //will call this to trigger the connection type change to NONE after (polling_interval * 2) seconds
@@ -69,10 +69,13 @@ export function BlockchainListenerWrapper() {
                 //use debounce to avoid multiple calls to updateNextBurn
                 addDebounce('refresh-next-burn-func', 100, updateNextBurn)
             })
-            //on raffle change refresh raffle data
+            //on raffle change refresh raffle data and process pending contributions
             const raffleUnsubscribe = blockchainEventManager.subscribe(RAFFLE_CHANGED_EVENT, () => {
                 //use debounce to avoid multiple calls to updateRaffles
                 addDebounce('refresh-raffle-func', 100, updateRaffles)
+
+                // Process pending raffle contributions
+                addDebounce('process-pending-raffle-contributions', 200, processPendingRaffleContributions)
             })
 
             unsubscribers.push(
@@ -92,7 +95,7 @@ export function BlockchainListenerWrapper() {
             removeFallback()
             unsubscribers.forEach(unsubscribe => unsubscribe())
         };
-    }, [isConnected, updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles]);
+    }, [isConnected, updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles, processPendingRaffleContributions]);
 
     return null; // This component renders nothing, just runs the hook
 }

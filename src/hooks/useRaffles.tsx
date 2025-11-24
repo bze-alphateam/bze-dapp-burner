@@ -35,3 +35,23 @@ export function useRaffle(denom: string) {
         winners,
     }
 }
+
+export function useRaffleContributions() {
+    const {
+        pendingRaffleContributions,
+        addPendingRaffleContribution,
+        removePendingRaffleContribution,
+        markRaffleContributionAsClosed
+    } = useAssetsContext();
+
+    const getPendingContribution = useMemo(() => {
+        return (denom: string) => pendingRaffleContributions.get(denom);
+    }, [pendingRaffleContributions]);
+
+    return {
+        addPendingRaffleContribution,
+        getPendingContribution,
+        markAsClosed: markRaffleContributionAsClosed,
+        removePendingContribution: removePendingRaffleContribution,
+    }
+}

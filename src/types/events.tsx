@@ -11,6 +11,7 @@ export interface TendermintEvent {
 
 export interface InternalEvent {
     marketId?: string;
+    blockHeight?: number;
 }
 
 export type EventCallback = (event?: InternalEvent) => void;

@@ -30,7 +30,23 @@ import { NextBurn} from "@/types/burn";
 import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
 import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
 import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
-import {getRaffles, getRaffleWinners} from "@/query/raffle";
+import {checkAddressWonRaffle, getRaffles, getRaffleWinners} from "@/query/raffle";
+
+export interface TicketResult {
+    hasWon: boolean;
+    amount: string;
+    ticketIndex: number; // 0-based
+}
+
+export interface PendingRaffleContribution {
+    blockHeight: number;
+    tickets: number;
+    denom: string;
+    wasClosed: boolean;
+    currentTicket: number; // 0-based index of next ticket to check
+    results: TicketResult[]; // Results for tickets that have been checked
+    isComplete: boolean; // All tickets have been checked
+}
 
 export interface AssetsContextType {
     //assets
@@ -81,6 +97,12 @@ export interface AssetsContextType {
 
     raffleWinners: Map<string, RaffleWinnerSDKType[]>;
 
+    pendingRaffleContributions: Map<string, PendingRaffleContribution>;
+    addPendingRaffleContribution: (denom: string, blockHeight: number, tickets: number, wasClosed: boolean) => void;
+    removePendingRaffleContribution: (denom: string) => void;
+    markRaffleContributionAsClosed: (denom: string) => void;
+    processPendingRaffleContributions: () => Promise<void>;
+
     settingsVersion: number;
     setSettingsVersion: (version: number) => void;
 }
@@ -122,6 +144,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [burnHistory, setBurnHistory] = useState<BurnedCoinsSDKType[]>([]);
     const [raffles, setRaffles] = useState<Map<string, RaffleSDKType>>(new Map())
     const [raffleWinners, setRaffleWinners] = useState<Map<string, RaffleWinnerSDKType[]>>(new Map())
+    const [pendingRaffleContributions, setPendingRaffleContributions] = useState<Map<string, PendingRaffleContribution>>(new Map())
     const [settingsVersion, setSettingsVersion] = useState(0);
 
     const {address} = useChain(getChainName());
@@ -375,6 +398,91 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         doUpdateRaffles(raffles);
     }, [doUpdateRaffles])
 
+    const addPendingRaffleContribution = useCallback((denom: string, blockHeight: number, tickets: number, wasClosed: boolean) => {
+        setPendingRaffleContributions(prev => {
+            const newMap = new Map(prev);
+            newMap.set(denom, {
+                blockHeight,
+                tickets,
+                denom,
+                wasClosed,
+                currentTicket: 0,
+                results: [],
+                isComplete: false,
+            });
+            return newMap;
+        });
+    }, []);
+
+    const removePendingRaffleContribution = useCallback((denom: string) => {
+        setPendingRaffleContributions(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(denom);
+            return newMap;
+        });
+    }, []);
+
+    const markRaffleContributionAsClosed = useCallback((denom: string) => {
+        setPendingRaffleContributions(prev => {
+            const existing = prev.get(denom);
+            if (!existing) return prev;
+
+            const newMap = new Map(prev);
+            newMap.set(denom, { ...existing, wasClosed: true });
+            return newMap;
+        });
+    }, []);
+
+    const processPendingRaffleContributions = useCallback(async () => {
+        if (!address) return;
+
+        const contributions = Array.from(pendingRaffleContributions.values());
+        const updates: Map<string, PendingRaffleContribution> = new Map();
+
+        for (const contribution of contributions) {
+            // Skip if already complete
+            if (contribution.isComplete) continue;
+
+            // Calculate which block to check: submission block + 2 + current ticket index
+            const checkBlock = contribution.blockHeight + 2 + contribution.currentTicket;
+
+            // Try to check if this ticket won
+            const result = await checkAddressWonRaffle(address, contribution.denom, checkBlock);
+
+            // If result is undefined, the block hasn't been processed yet, skip for now
+            if (!result) continue;
+
+            // Add result to the results array
+            const newResults = [...contribution.results, {
+                hasWon: result.hasWon,
+                amount: result.amount,
+                ticketIndex: contribution.currentTicket,
+            }];
+
+            // Move to next ticket
+            const nextTicket = contribution.currentTicket + 1;
+            const isComplete = nextTicket >= contribution.tickets;
+
+            updates.set(contribution.denom, {
+                ...contribution,
+                currentTicket: nextTicket,
+                results: newResults,
+                isComplete,
+            });
+        }
+
+        // Apply all updates at once
+        if (updates.size > 0) {
+            setPendingRaffleContributions(prev => {
+                const newMap = new Map(prev);
+                updates.forEach((value, key) => {
+                    newMap.set(key, value);
+                });
+                return newMap;
+            });
+        }
+    }, [address, pendingRaffleContributions]);
+
     useEffect(() => {
         setIsLoading(true)
         //initial context loading
@@ -468,8 +576,13 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             raffles,
             updateRaffles,
             raffleWinners,
+            pendingRaffleContributions,
+            addPendingRaffleContribution,
+            removePendingRaffleContribution,
+            markRaffleContributionAsClosed,
+            processPendingRaffleContributions,
             settingsVersion,
-            setSettingsVersion
+            setSettingsVersion,
         }}>
             {children}
         </AssetsContext.Provider>
