@@ -1,27 +1,12 @@
 import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
-import {getFromLocalStorage, removeFromLocalStorage, setInLocalStorage} from "@/storage/storage";
 import {getRestClient} from "@/query/client";
 import {getBlockResults} from "@/query/block";
 import {mapEventAttributes} from "@/utils/events";
 
-const RAFFLES_KEY = 'burner:raffles';
-const RAFFLE_CACHE_TTL = 60; // 1 minute
-
 export async function getRaffles(): Promise<RaffleSDKType[]> {
     try {
-        const cacheKey = RAFFLES_KEY;
-        const localData = getFromLocalStorage(cacheKey);
-        if (null !== localData) {
-            const parsed = JSON.parse(localData);
-            if (parsed) {
-                return parsed.list;
-            }
-        }
-
         const client = await getRestClient();
         const response = await client.bze.burner.raffles();
-
-        setInLocalStorage(cacheKey, JSON.stringify(response), RAFFLE_CACHE_TTL)
 
         return response.list;
     } catch (e) {
@@ -30,11 +15,6 @@ export async function getRaffles(): Promise<RaffleSDKType[]> {
         return [];
     }
 }
-
-export async function removeRafflesCache() {
-    removeFromLocalStorage(RAFFLES_KEY);
-}
-
 
 export async function getRaffleWinners(denom: string): Promise<RaffleWinnerSDKType[]> {
     try {
@@ -79,7 +59,6 @@ export async function checkAddressWonRaffle(address: string, denom: string, heig
     if (blockResults.result.finalize_block_events.length === 0) {
         return response;
     }
-
 
     const raffleEvents = blockResults.result.finalize_block_events.filter(ev => ev.type.includes('Raffle'));
     if (!raffleEvents || raffleEvents.length === 0) {

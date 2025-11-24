@@ -80,6 +80,9 @@ export interface AssetsContextType {
     updateRaffles: () => Promise<void>;
 
     raffleWinners: Map<string, RaffleWinnerSDKType[]>;
+
+    settingsVersion: number;
+    setSettingsVersion: (version: number) => void;
 }
 
 export const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
@@ -119,6 +122,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [burnHistory, setBurnHistory] = useState<BurnedCoinsSDKType[]>([]);
     const [raffles, setRaffles] = useState<Map<string, RaffleSDKType>>(new Map())
     const [raffleWinners, setRaffleWinners] = useState<Map<string, RaffleWinnerSDKType[]>>(new Map())
+    const [settingsVersion, setSettingsVersion] = useState(0);
 
     const {address} = useChain(getChainName());
 
@@ -133,8 +137,6 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         setBurnHistory(history)
     }, [])
     const doUpdateRaffles = useCallback(async (newRaffles: RaffleSDKType[]) => {
-        setRaffles(new Map(newRaffles.map(r => [r.denom, r])));
-
         //filter out raffles that are already in the context and not modified
         const modified = newRaffles.filter((r) => {
             const existing = raffles.get(r.denom)
@@ -145,6 +147,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             return r.winners === existing.winners && r.total_won === existing.total_won
         })
 
+        setRaffles(new Map(newRaffles.map(r => [r.denom, r])));
         const newWinners = new Map(raffleWinners)
         for (const raffle of modified) {
             const winners = await getRaffleWinners(raffle.denom);
@@ -464,7 +467,9 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             updateBurnHistory,
             raffles,
             updateRaffles,
-            raffleWinners
+            raffleWinners,
+            settingsVersion,
+            setSettingsVersion
         }}>
             {children}
         </AssetsContext.Provider>

@@ -22,12 +22,13 @@ import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useNextBurning } from "@/hooks/useNextBurning";
-import { useRaffles, useRaffleWinners } from "@/hooks/useRaffles";
+import {useRaffle} from "@/hooks/useRaffles";
 import BigNumber from "bignumber.js";
 import { prettyAmount, uAmountToBigNumberAmount, toBigNumber } from "@/utils/amount";
 import { truncateDenom } from "@/utils/denom";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { truncateAddress } from "@/utils/address";
+import {useEpochs} from "@/hooks/useEpochs";
 
 const WINNERS_LIST_MAX_LEN = 20;
 
@@ -44,6 +45,9 @@ export default function CoinDetailPage() {
     const { getAsset, denomDecimals, isLoading: isLoadingAssets } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const asset = useMemo(() => getAsset(denom), [getAsset, denom]);
+    const {hourEpochInfo} = useEpochs()
+
+    const currentEpoch = useMemo(() => toBigNumber(hourEpochInfo?.current_epoch ?? 0), [hourEpochInfo])
 
     // Fetch burn history for this specific coin
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory(denom);
@@ -51,16 +55,8 @@ export default function CoinDetailPage() {
     // Fetch next burning data
     const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
 
-    // Fetch raffles data
-    const { raffles: allRaffles, currentEpoch, isLoading: isLoadingRaffles } = useRaffles();
-
-    // Find raffle for this coin
-    const coinRaffle = useMemo(() => {
-        return allRaffles.find(r => r.denom === denom);
-    }, [allRaffles, denom]);
-
     // Fetch raffle winners if there's a raffle for this coin
-    const { winners } = useRaffleWinners(coinRaffle?.denom || '');
+    const { winners, raffle: coinRaffle, isLoading: isLoadingRaffles } = useRaffle(denom || '');
 
     // Get next burning info for this specific coin
     const nextCoinBurn = useMemo(() => {
@@ -410,7 +406,7 @@ export default function CoinDetailPage() {
                                                                 borderRadius="md"
                                                             >
                                                                 <Text fontSize="sm" fontFamily="mono" color="fg.muted">
-                                                                    {winner.address}
+                                                                    {idx + 1}. {winner.address}
                                                                 </Text>
                                                                 <Text fontSize="sm" fontWeight="bold" color="green.500">
                                                                     +{winner.amount} {asset.ticker}

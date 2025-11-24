@@ -20,6 +20,7 @@ import {uAmountToBigNumberAmount, prettyAmount, toBigNumber} from "@/utils/amoun
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { RaffleSDKType } from "@bze/bzejs/bze/burner/raffle";
 import BigNumber from "bignumber.js";
+import {useEpochs} from "@/hooks/useEpochs";
 
 interface RaffleCardProps {
     raffle: RaffleSDKType;
@@ -198,7 +199,10 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
 
 export default function RafflesPage() {
     const router = useRouter();
-    const { raffles, currentEpoch, isLoading } = useRaffles();
+    const { raffles, isLoading } = useRaffles();
+    const {hourEpochInfo} = useEpochs()
+
+    const currentEpoch = useMemo(() => toBigNumber(hourEpochInfo?.current_epoch ?? 0), [hourEpochInfo])
 
     const handleRaffleClick = (denom: string) => {
         router.push(`/coin?coin=${denom}`);

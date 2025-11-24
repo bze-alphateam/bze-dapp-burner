@@ -1,31 +1,28 @@
-import { useMemo } from "react";
+import {useMemo} from "react";
 import { useAssetsContext } from "@/hooks/useAssets";
-import { toBigNumber } from "@/utils/amount";
-import BigNumber from "bignumber.js";
 
 export function useRaffles() {
-    const { raffles: rafflesMap, epochs, isLoading, updateRaffles } = useAssetsContext();
+    const { raffles: rafflesMap, isLoading, updateRaffles } = useAssetsContext();
 
     const raffles = useMemo(() => {
         return Array.from(rafflesMap.values());
     }, [rafflesMap]);
 
-    const currentEpoch = useMemo(() => {
-        const hourEpoch = epochs.get('hour');
-        if (!hourEpoch) return BigNumber(0);
-        return toBigNumber(hourEpoch.current_epoch);
-    }, [epochs]);
-
     return {
         raffles,
-        currentEpoch,
         isLoading,
         reload: updateRaffles,
     };
 }
 
-export function useRaffleWinners(denom: string) {
-    const { raffleWinners, isLoading } = useAssetsContext();
+export function useRaffle(denom: string) {
+    const { raffles, isLoading, raffleWinners } = useAssetsContext();
+
+    const raffle = useMemo(() => {
+        if (!denom) return undefined;
+
+        return raffles.get(denom)
+    }, [denom, raffles])
 
     const winners = useMemo(() => {
         if (!denom) return [];
@@ -33,7 +30,8 @@ export function useRaffleWinners(denom: string) {
     }, [raffleWinners, denom]);
 
     return {
-        winners,
+        raffle,
         isLoading,
-    };
+        winners,
+    }
 }
