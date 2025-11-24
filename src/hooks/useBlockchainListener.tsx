@@ -5,6 +5,7 @@ import {getChainName} from "@/constants/chain";
 import {blockchainEventManager} from "@/service/blockchain_event_manager";
 import {
     CURRENT_WALLET_BALANCE_EVENT,
+    NEXT_BURN_CHANGED_EVENT,
     ORDER_BOOK_CHANGED_EVENT,
     ORDER_EXECUTED_EVENT,
     SUPPLY_CHANGED_EVENT,
@@ -13,10 +14,13 @@ import {
 import {parseCoins} from "@cosmjs/amino";
 import {coins} from "@cosmjs/stargate";
 import {getChainNativeAssetDenom} from "@/constants/assets";
+import {getBurnerModuleAddress} from "@/query/module";
 
 const BLOCK_SUBSCRIPTION_ID = 1;
 const TX_RECIPIENT_SUBSCRIPTION_ID = 2;
 const TX_SENDER_SUBSCRIPTION_ID = 3;
+const BURNER_RECIPIENT_SUBSCRIPTION_ID = 4;
+const BURNER_SENDER_SUBSCRIPTION_ID = 5;
 
 const buildSubscribePayload = (id: number, query: string) => {
     return {
@@ -84,7 +88,9 @@ export function useBlockchainListener() {
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const shouldReconnectRef = useRef(true);
     const subscribedToTxRef = useRef(false);
+    const subscribedToBurnerRef = useRef(false);
     const previousAddressRef = useRef<string | undefined>(undefined);
+    const burnerAddressRef = useRef<string>('');
     const [isConnected, setIsConnected] = useState(false);
 
     const maxReconnectAttempts = 10;
@@ -98,6 +104,17 @@ export function useBlockchainListener() {
             if (isAddressTransfer(address ?? '', event)) {
                 //the current address balance changed
                 blockchainEventManager.emit(CURRENT_WALLET_BALANCE_EVENT)
+                //also dispatch the burner module event if burner address is available
+                if (isAddressTransfer(burnerAddressRef.current, event)) {
+                    //the burner module balance changed - next burn amount changed
+                    blockchainEventManager.emit(NEXT_BURN_CHANGED_EVENT)
+                }
+                continue;
+            }
+
+            if (isAddressTransfer(burnerAddressRef.current, event)) {
+                //the burner module balance changed - next burn amount changed
+                blockchainEventManager.emit(NEXT_BURN_CHANGED_EVENT)
                 continue;
             }
 
@@ -173,6 +190,41 @@ export function useBlockchainListener() {
         subscribedToTxRef.current = false;
     }, []);
 
+    const subscribeBurnerEvents = useCallback((burnerAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (subscribedToBurnerRef.current) return;
+        if (!burnerAddress || burnerAddress === '') return;
+
+        // Subscribe to burner recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${burnerAddress}'`;
+        const recipientPayload = buildSubscribePayload(BURNER_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Subscribe to burner sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${burnerAddress}'`;
+        const senderPayload = buildSubscribePayload(BURNER_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToBurnerRef.current = true;
+    }, []);
+
+    const unsubscribeBurnerEvents = useCallback((burnerAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (!subscribedToBurnerRef.current) return;
+
+        // Unsubscribe from burner recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${burnerAddress}'`;
+        const recipientPayload = buildUnsubscribePayload(BURNER_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Unsubscribe from burner sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${burnerAddress}'`;
+        const senderPayload = buildUnsubscribePayload(BURNER_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToBurnerRef.current = false;
+    }, []);
+
     const reconnect = useCallback(() => {
         if (!shouldReconnectRef.current) return;
 
@@ -220,6 +272,11 @@ export function useBlockchainListener() {
                 subscribeTxEvents(address);
             }
 
+            // Subscribe to burner events if burner address is available
+            if (burnerAddressRef.current !== '') {
+                subscribeBurnerEvents(burnerAddressRef.current);
+            }
+
             // Reset reconnect attempts on successful connection
             reconnectAttemptsRef.current = 0;
             setIsConnected(true); // Set connected
@@ -245,6 +302,7 @@ export function useBlockchainListener() {
 
             //tx events from Tx subscription
             if (data?.result?.data?.value?.TxResult?.result?.events) {
+                console.log("tx event from tx subscription", data)
                 onBlockEvent(data.result.data.value.TxResult.result.events)
             }
         };
@@ -266,7 +324,7 @@ export function useBlockchainListener() {
             // Close the connection to trigger reconnect via onclose
             wsRef.current?.close();
         };
-    }, [reconnect, address, subscribeTxEvents, onBlockEvent]);
+    }, [reconnect, address, subscribeTxEvents, subscribeBurnerEvents, onBlockEvent]);
 
     // Handle address changes
     useEffect(() => {
@@ -288,6 +346,24 @@ export function useBlockchainListener() {
             previousAddressRef.current = currentAddress;
         }
     }, [address, subscribeTxEvents, unsubscribeTxEvents]);
+
+    // Fetch burner address on mount
+    useEffect(() => {
+        const fetchBurnerAddress = async () => {
+            const burnerAddr = await getBurnerModuleAddress();
+            burnerAddressRef.current = burnerAddr;
+
+            // If already connected, subscribe to burner events
+            if (wsRef.current?.readyState === WebSocket.OPEN && burnerAddr !== '') {
+                subscribeBurnerEvents(burnerAddr);
+            }
+        };
+
+        fetchBurnerAddress();
+        return () => {
+            unsubscribeBurnerEvents(burnerAddressRef.current);
+        }
+    }, [subscribeBurnerEvents, unsubscribeBurnerEvents]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;

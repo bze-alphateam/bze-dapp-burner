@@ -276,7 +276,7 @@ export default function BurnerHomePage() {
     const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const { getPoolByLpDenom } = useLiquidityPools();
-    const { nextBurn, isLoading: isLoadingNextBurn, reload: reloadNextBurning } = useNextBurning();
+    const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
 
     // Get last 10 burns
     const lastBurnings = burnHistory.slice(0, 10);
@@ -306,8 +306,7 @@ export default function BurnerHomePage() {
 
     const onBurnModalClose = useCallback(() => {
         setIsBurnModalOpen(false)
-        reloadNextBurning()
-    }, [reloadNextBurning])
+    }, [])
 
     return (
         <Box minH="100vh" pb="12">

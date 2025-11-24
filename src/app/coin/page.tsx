@@ -49,7 +49,7 @@ export default function CoinDetailPage() {
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory(denom);
 
     // Fetch next burning data
-    const { nextBurn, isLoading: isLoadingNextBurn, reload: reloadNextBurning } = useNextBurning();
+    const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
 
     // Fetch raffles data
     const { raffles: allRaffles, currentEpoch, isLoading: isLoadingRaffles } = useRaffles();
@@ -150,8 +150,7 @@ export default function CoinDetailPage() {
 
     const onModalClose = useCallback(() => {
         setIsBurnModalOpen(false);
-        reloadNextBurning()
-    }, [reloadNextBurning])
+    }, [])
 
     // Show loading state
     if (isLoadingAssets) {

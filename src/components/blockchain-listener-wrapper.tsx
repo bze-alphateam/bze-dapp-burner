@@ -4,7 +4,7 @@ import { useBlockchainListener } from '@/hooks/useBlockchainListener';
 import {useEffect} from "react";
 import {useAssetsContext} from "@/hooks/useAssets";
 import {blockchainEventManager} from "@/service/blockchain_event_manager";
-import {CURRENT_WALLET_BALANCE_EVENT, ORDER_EXECUTED_EVENT, SUPPLY_CHANGED_EVENT} from "@/types/events";
+import {CURRENT_WALLET_BALANCE_EVENT, NEXT_BURN_CHANGED_EVENT, ORDER_EXECUTED_EVENT, SUPPLY_CHANGED_EVENT} from "@/types/events";
 import {addDebounce, addMultipleDebounce} from "@/utils/debounce";
 import {CONNECTION_TYPE_NONE, CONNECTION_TYPE_POLLING, CONNECTION_TYPE_WS} from "@/types/settings";
 
@@ -12,7 +12,7 @@ const POLLING_INTERVAL = 10 * 1000;
 
 export function BlockchainListenerWrapper() {
     const {isConnected} = useBlockchainListener();
-    const {updateBalances, updateMarketsData, updateConnectionType, updateAssets} = useAssetsContext()
+    const {updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn} = useAssetsContext()
 
     useEffect(() => {
         //will call this to trigger the connection type change to NONE after (polling_interval * 2) seconds
@@ -62,11 +62,17 @@ export function BlockchainListenerWrapper() {
                 //use debounce to avoid multiple calls to updateMarketsData
                 addMultipleDebounce('refresh-market-data-func', 1500, updateMarketsData, 2)
             })
+            //on next burn change refresh next burn data
+            const nextBurnUnsubscribe = blockchainEventManager.subscribe(NEXT_BURN_CHANGED_EVENT, () => {
+                //use debounce to avoid multiple calls to updateNextBurn
+                addDebounce('refresh-next-burn-func', 100, updateNextBurn)
+            })
 
             unsubscribers.push(
                 balanceUnsubscribe,
                 marketUnsubscribe,
                 updateAssetsUnsubscribe,
+                nextBurnUnsubscribe,
             )
         }
 
@@ -78,7 +84,7 @@ export function BlockchainListenerWrapper() {
             removeFallback()
             unsubscribers.forEach(unsubscribe => unsubscribe())
         };
-    }, [isConnected, updateBalances, updateMarketsData, updateConnectionType, updateAssets]);
+    }, [isConnected, updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn]);
 
     return null; // This component renders nothing, just runs the hook
 }

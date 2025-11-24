@@ -123,9 +123,9 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const {address} = useChain(getChainName());
 
     const doUpdateNextBurn = useCallback((next?: NextBurn) => {
-        if (!next) return;
+        // if (!next) return;
         setNextBurn(next)
-    }, [])
+    }, [setNextBurn])
     const doUpdateBurnHistory = useCallback((history: BurnedCoinsSDKType[]) => {
         if (history.length === 0) {
             return;
