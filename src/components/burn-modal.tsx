@@ -16,12 +16,8 @@ import {
 import {useState, useEffect, useMemo, useCallback} from "react";
 import {useAsset, useAssets} from "@/hooks/useAssets";
 import { useBalances, useBalance } from "@/hooks/useBalances";
-import { TokenLogo } from "@/components/ui/token_logo";
-import { LPTokenLogo } from "@/components/ui/lp_token_logo";
-import { useLiquidityPool } from "@/hooks/useLiquidityPools";
 import {amountToUAmount, prettyAmount, toBigNumber, uAmountToAmount, uAmountToBigNumberAmount} from "@/utils/amount";
 import { isLpDenom } from "@/utils/denom";
-import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
 import BigNumber from "bignumber.js";
 import {Asset} from "@/types/asset";
 import {useChain} from "@interchain-kit/react";
@@ -30,6 +26,7 @@ import {useToast} from "@/hooks/useToast";
 import {bze} from '@bze/bzejs'
 import {useBZETx} from "@/hooks/useTx";
 import {sanitizeNumberInput} from "@/utils/number";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface BurnModalProps {
     isOpen: boolean;
@@ -39,11 +36,7 @@ interface BurnModalProps {
 
 // Component to render select item with logo
 const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) => {
-    const isLP = isLpDenom(asset.denom);
-    const poolId = isLP ? poolIdFromPoolDenom(asset.denom) : '';
-    const { pool } = useLiquidityPool(poolId);
-    const { asset: baseAsset } = useAsset(pool?.base || '');
-    const { asset: quoteAsset } = useAsset(pool?.quote || '');
+    const isLP = useMemo(() => isLpDenom(asset.denom), [asset]);
 
     return (
         <HStack gap="2">
@@ -53,21 +46,7 @@ const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) =>
                 alignItems="center"
                 width={isLP ? "28px" : "auto"}
             >
-                {isLP && baseAsset && quoteAsset ? (
-                    <LPTokenLogo
-                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                        baseAssetSymbol={baseAsset.ticker}
-                        quoteAssetSymbol={quoteAsset.ticker}
-                        size="20px"
-                    />
-                ) : (
-                    <TokenLogo
-                        src={asset.logo || "/images/token.svg"}
-                        symbol={asset.ticker}
-                        size="20px"
-                    />
-                )}
+                <AssetLogo asset={asset} size="28px" />
             </Box>
             <Text>{label}</Text>
         </HStack>
@@ -75,18 +54,14 @@ const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) =>
 };
 
 // Component to display token info with LP support
-const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
+const TokenInfoBox = ({ denom, name, ticker, balance }: {
     denom: string;
     name: string;
     ticker: string;
-    logo: string;
     balance: string;
 }) => {
+    const {asset} = useAsset(denom)
     const isLP = isLpDenom(denom);
-    const poolId = isLP ? poolIdFromPoolDenom(denom) : '';
-    const { pool } = useLiquidityPool(poolId);
-    const { asset: baseAsset } = useAsset(pool?.base || '');
-    const { asset: quoteAsset } = useAsset(pool?.quote || '');
 
     return (
         <VStack gap="3" align="stretch">
@@ -103,21 +78,7 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                         justifyContent="center"
                         alignItems="center"
                     >
-                        {isLP && baseAsset && quoteAsset ? (
-                            <LPTokenLogo
-                                baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                baseAssetSymbol={baseAsset.ticker}
-                                quoteAssetSymbol={quoteAsset.ticker}
-                                size="48px"
-                            />
-                        ) : (
-                            <TokenLogo
-                                src={logo || "/images/token.svg"}
-                                symbol={ticker}
-                                size="48px"
-                            />
-                        )}
+                        {asset && <AssetLogo asset={asset} size="48px" /> }
                     </Box>
                     <VStack gap="0" align="start" flex="1" ml={3}>
                         <Text fontSize="lg" fontWeight="bold">{name}</Text>
@@ -342,7 +303,6 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                         denom={selectedAsset.denom}
                                         name={selectedAsset.name}
                                         ticker={selectedAsset.ticker}
-                                        logo={selectedAsset.logo}
                                         balance={prettyBalance}
                                     />
                                 )}

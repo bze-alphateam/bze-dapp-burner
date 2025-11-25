@@ -15,13 +15,13 @@ import { useMemo } from "react";
 import { RaffleInfo } from "@/components/raffle-info";
 import { useRaffles } from "@/hooks/useRaffles";
 import { useAsset } from "@/hooks/useAssets";
-import { TokenLogo } from "@/components/ui/token_logo";
 import { HighlightText } from "@/components/ui/highlight";
 import {uAmountToBigNumberAmount, prettyAmount, toBigNumber} from "@/utils/amount";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { RaffleSDKType } from "@bze/bzejs/bze/burner/raffle";
 import BigNumber from "bignumber.js";
 import {useEpochs} from "@/hooks/useEpochs";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface RaffleCardProps {
     raffle: RaffleSDKType;
@@ -32,10 +32,9 @@ interface RaffleCardProps {
 function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
     const { asset } = useAsset(raffle.denom);
 
-    const ticker = asset?.ticker || raffle.denom;
-    const name = asset?.name || raffle.denom;
-    const logo = asset?.logo || "/images/token.svg";
-    const decimals = asset?.decimals || 6;
+    const ticker = useMemo(() => asset?.ticker || raffle.denom, [asset?.ticker, raffle.denom]);
+    const name = useMemo(() => asset?.name || raffle.denom, [asset?.name, raffle.denom]);
+    const decimals = useMemo(() => asset?.decimals || 6, [asset?.decimals]);
 
     const formattedPrize = useMemo(() => {
         const potAmount = uAmountToBigNumberAmount(raffle.pot, decimals);
@@ -100,11 +99,7 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
                             _dark={{ bg: "gray.900" }}
                             borderRadius="full"
                         >
-                            <TokenLogo
-                                src={logo}
-                                symbol={ticker}
-                                size="40px"
-                            />
+                            {asset && <AssetLogo asset={asset} size="40px" /> }
                         </Box>
                         <VStack gap="0" align="start" flex="1">
                             <Text fontSize="lg" fontWeight="black" color="purple.600" _dark={{ color: "purple.300" }}>

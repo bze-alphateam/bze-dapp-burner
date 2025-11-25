@@ -20,15 +20,12 @@ import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
 import { useAssets, useAsset, useAssetsContext } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
-import { useLiquidityPools, useLiquidityPool } from "@/hooks/useLiquidityPools";
 import { useNextBurning } from "@/hooks/useNextBurning";
 import BigNumber from "bignumber.js";
 import {prettyAmount, uAmountToBigNumberAmount} from "@/utils/amount";
-import { TokenLogo } from "@/components/ui/token_logo";
-import { LPTokenLogo } from "@/components/ui/lp_token_logo";
 import { HighlightText } from "@/components/ui/highlight";
 import { isLpDenom } from "@/utils/denom";
-import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 // Countdown Timer Component with playful design
 const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
@@ -159,14 +156,9 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
     const { asset } = useAsset(denom);
 
     const isLP = isLpDenom(denom);
-    const poolId = isLP ? poolIdFromPoolDenom(denom) : '';
-    const { pool } = useLiquidityPool(poolId);
-    const { asset: baseAsset } = useAsset(pool?.base || '');
-    const { asset: quoteAsset } = useAsset(pool?.quote || '');
 
     const ticker = asset?.ticker || denom;
     const name = asset?.name || denom;
-    const logo = asset?.logo || "/images/token.svg";
 
     const decimals = denomDecimals(denom);
     const prettyAmountValue = useMemo(() => {
@@ -207,21 +199,7 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
                     justifyContent="center"
                     alignItems="center"
                 >
-                    {isLP && baseAsset && quoteAsset ? (
-                        <LPTokenLogo
-                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                            baseAssetSymbol={baseAsset.ticker}
-                            quoteAssetSymbol={quoteAsset.ticker}
-                            size="56px"
-                        />
-                    ) : (
-                        <TokenLogo
-                            src={logo}
-                            symbol={ticker}
-                            size="56px"
-                        />
-                    )}
+                    {asset && (<AssetLogo asset={asset} size="56px"/>)}
                 </Box>
                 <VStack gap="1" align="center">
                     <Text fontSize="sm" color="fg.muted" fontWeight="medium">
@@ -260,7 +238,6 @@ export default function BurnerHomePage() {
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory();
     const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
-    const { getPoolByLpDenom } = useLiquidityPools();
     const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
     const { lockBalance } = useAssetsContext();
 
@@ -567,22 +544,10 @@ export default function BurnerHomePage() {
                                         </Table.Header>
                                         <Table.Body>
                                             {lockedTokens.map((token, idx) => {
+                                                const asset = getAsset(token.denom);
                                                 const isLP = isLpDenom(token.denom);
                                                 const formattedAmount = prettyAmount(token.balance);
                                                 const formattedUsdValue = prettyAmount(token.usdValue);
-
-                                                let baseAsset, quoteAsset;
-                                                if (isLP) {
-                                                    const pool = getPoolByLpDenom(token.denom);
-                                                    if (pool) {
-                                                        const base = getAsset(pool.base);
-                                                        const quote = getAsset(pool.quote);
-                                                        if (base && quote) {
-                                                            baseAsset = base;
-                                                            quoteAsset = quote;
-                                                        }
-                                                    }
-                                                }
 
                                                 return (
                                                     <Table.Row
@@ -607,21 +572,7 @@ export default function BurnerHomePage() {
                                                                     justifyContent="center"
                                                                     alignItems="center"
                                                                 >
-                                                                    {isLP && baseAsset && quoteAsset ? (
-                                                                        <LPTokenLogo
-                                                                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                            baseAssetSymbol={baseAsset.ticker}
-                                                                            quoteAssetSymbol={quoteAsset.ticker}
-                                                                            size="32px"
-                                                                        />
-                                                                    ) : (
-                                                                        <TokenLogo
-                                                                            src={token.logo}
-                                                                            symbol={token.ticker}
-                                                                            size="32px"
-                                                                        />
-                                                                    )}
+                                                                    {asset && <AssetLogo asset={asset} size="32px" />}
                                                                 </Box>
                                                                 <Text fontWeight="bold" fontSize="md">{token.ticker}</Text>
                                                             </HStack>
@@ -654,22 +605,10 @@ export default function BurnerHomePage() {
                                 <Box display={{ base: "block", md: "none" }}>
                                     <VStack gap="0" align="stretch">
                                         {lockedTokens.map((token, idx) => {
+                                            const asset = getAsset(token.denom);
                                             const isLP = isLpDenom(token.denom);
                                             const formattedAmount = prettyAmount(token.balance);
                                             const formattedUsdValue = prettyAmount(token.usdValue);
-
-                                            let baseAsset, quoteAsset;
-                                            if (isLP) {
-                                                const pool = getPoolByLpDenom(token.denom);
-                                                if (pool) {
-                                                    const base = getAsset(pool.base);
-                                                    const quote = getAsset(pool.quote);
-                                                    if (base && quote) {
-                                                        baseAsset = base;
-                                                        quoteAsset = quote;
-                                                    }
-                                                }
-                                            }
 
                                             return (
                                                 <Box
@@ -697,21 +636,7 @@ export default function BurnerHomePage() {
                                                                 justifyContent="center"
                                                                 alignItems="center"
                                                             >
-                                                                {isLP && baseAsset && quoteAsset ? (
-                                                                    <LPTokenLogo
-                                                                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                        baseAssetSymbol={baseAsset.ticker}
-                                                                        quoteAssetSymbol={quoteAsset.ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                ) : (
-                                                                    <TokenLogo
-                                                                        src={token.logo}
-                                                                        symbol={token.ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                )}
+                                                                {asset && <AssetLogo asset={asset} size="40px" />}
                                                             </Box>
                                                             <VStack gap="0" align="start">
                                                                 <Text fontWeight="bold" fontSize="md">
@@ -799,23 +724,9 @@ export default function BurnerHomePage() {
                                                 const asset = getAsset(burn.denom);
                                                 const ticker = asset?.ticker || burn.denom;
                                                 const name = asset?.name || burn.denom;
-                                                const logo = asset?.logo || "/images/token.svg";
                                                 const isLP = isLpDenom(burn.denom);
                                                 const formattedAmount = prettyAmount(burn.amount);
                                                 const formattedUsdValue = prettyAmount(burn.usdValue);
-
-                                                let baseAsset, quoteAsset;
-                                                if (isLP) {
-                                                    const pool = getPoolByLpDenom(burn.denom);
-                                                    if (pool) {
-                                                        const base = getAsset(pool.base);
-                                                        const quote = getAsset(pool.quote);
-                                                        if (base && quote) {
-                                                            baseAsset = base;
-                                                            quoteAsset = quote;
-                                                        }
-                                                    }
-                                                }
 
                                                 return (
                                                     <Table.Row
@@ -840,21 +751,7 @@ export default function BurnerHomePage() {
                                                                     justifyContent="center"
                                                                     alignItems="center"
                                                                 >
-                                                                    {isLP && baseAsset && quoteAsset ? (
-                                                                        <LPTokenLogo
-                                                                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                            baseAssetSymbol={baseAsset.ticker}
-                                                                            quoteAssetSymbol={quoteAsset.ticker}
-                                                                            size="32px"
-                                                                        />
-                                                                    ) : (
-                                                                        <TokenLogo
-                                                                            src={logo}
-                                                                            symbol={ticker}
-                                                                            size="32px"
-                                                                        />
-                                                                    )}
+                                                                    {asset && <AssetLogo asset={asset} size="32px" />}
                                                                 </Box>
                                                                 <Text fontWeight="bold" fontSize="md">{ticker}</Text>
                                                             </HStack>
@@ -918,23 +815,9 @@ export default function BurnerHomePage() {
                                             const asset = getAsset(burn.denom);
                                             const ticker = asset?.ticker || burn.denom;
                                             const name = asset?.name || burn.denom;
-                                            const logo = asset?.logo || "/images/token.svg";
                                             const isLP = isLpDenom(burn.denom);
                                             const formattedAmount = prettyAmount(burn.amount);
                                             const formattedUsdValue = prettyAmount(burn.usdValue);
-
-                                            let baseAsset, quoteAsset;
-                                            if (isLP) {
-                                                const pool = getPoolByLpDenom(burn.denom);
-                                                if (pool) {
-                                                    const base = getAsset(pool.base);
-                                                    const quote = getAsset(pool.quote);
-                                                    if (base && quote) {
-                                                        baseAsset = base;
-                                                        quoteAsset = quote;
-                                                    }
-                                                }
-                                            }
 
                                             return (
                                                 <Box
@@ -962,21 +845,7 @@ export default function BurnerHomePage() {
                                                                 justifyContent="center"
                                                                 alignItems="center"
                                                             >
-                                                                {isLP && baseAsset && quoteAsset ? (
-                                                                    <LPTokenLogo
-                                                                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                        baseAssetSymbol={baseAsset.ticker}
-                                                                        quoteAssetSymbol={quoteAsset.ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                ) : (
-                                                                    <TokenLogo
-                                                                        src={logo}
-                                                                        symbol={ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                )}
+                                                                {asset && <AssetLogo asset={asset} size="40px"/> }
                                                             </Box>
                                                             <VStack gap="0" align="start">
                                                                 <Text fontWeight="bold" fontSize="md">

@@ -6,7 +6,6 @@ import {
     VStack,
     HStack,
     Text,
-    Image,
     Card,
     Badge,
     Table,
@@ -33,6 +32,7 @@ import {truncateDenom, isLpDenom, isIbcDenom} from "@/utils/denom";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { truncateAddress } from "@/utils/address";
 import {useEpochs} from "@/hooks/useEpochs";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 const WINNERS_LIST_MAX_LEN = 20;
 
@@ -360,13 +360,7 @@ export default function CoinDetailPage() {
                                             _dark={{ bg: "gray.900" }}
                                             borderRadius="full"
                                         >
-                                            <Image
-                                                src={asset.logo || "/images/token.svg"}
-                                                alt={asset.ticker}
-                                                width="64px"
-                                                height="64px"
-                                                borderRadius="full"
-                                            />
+                                            <AssetLogo asset={asset} size="64px" />
                                         </Box>
                                         <VStack gap="1" align="start">
                                             <HStack gap="2">
