@@ -391,7 +391,7 @@ export default function CoinDetailPage() {
                                     {!raffleData && (
                                         <Button
                                             size="lg"
-                                            colorPalette={isLP ? "purple" : "orange"}
+                                            colorPalette={"orange"}
                                             onClick={() => setIsBurnModalOpen(true)}
                                             fontWeight="bold"
                                         >
@@ -406,28 +406,28 @@ export default function CoinDetailPage() {
                     {/* LP Coin Explanation */}
                     {isLP && (
                         <Card.Root
-                            bgGradient="to-r"
-                            gradientFrom="purple.50"
-                            gradientTo="blue.50"
+                            bgGradient="to-br"
+                            gradientFrom="blue.50"
+                            gradientTo="blue.100"
                             _dark={{
-                                gradientFrom: "purple.950",
-                                gradientTo: "blue.950",
+                                gradientFrom: "blue.950",
+                                gradientTo: "blue.900",
                             }}
-                            borderRadius="2xl"
-                            shadow="md"
+                            borderRadius="3xl"
+                            shadow="lg"
                         >
                             <Card.Body>
-                                <HStack gap="3" align="start">
-                                    <Text fontSize="2xl">ℹ️</Text>
-                                    <VStack gap="2" align="start" flex="1">
-                                        <Text fontSize="md" fontWeight="bold" color="purple.700" _dark={{ color: "purple.300" }}>
+                                <VStack gap="4" align="stretch">
+                                    <HStack gap="3">
+                                        <Text fontSize="3xl">ℹ️</Text>
+                                        <Text fontSize="xl" fontWeight="black" color="blue.700" _dark={{ color: "blue.300" }}>
                                             About Locking LP Coins
                                         </Text>
-                                        <Text fontSize="sm" color="fg.muted" lineHeight="1.6">
-                                            LP (Liquidity Pool) Coins are not literally burned. Instead, they are locked forever in a secure address, permanently removing them from circulation. Once locked, these coins can never be retrieved or used again.
-                                        </Text>
-                                    </VStack>
-                                </HStack>
+                                    </HStack>
+                                    <Text fontSize="sm" color="fg.muted" lineHeight="1.6">
+                                        LP (Liquidity Pool) Coins are not literally burned. Instead, they are locked forever in a secure address, permanently removing them from circulation. Once locked, these coins can never be retrieved or used again.
+                                    </Text>
+                                </VStack>
                             </Card.Body>
                         </Card.Root>
                     )}
@@ -435,28 +435,28 @@ export default function CoinDetailPage() {
                     {/* IBC Coin Explanation */}
                     {isIBC && (
                         <Card.Root
-                            bgGradient="to-r"
+                            bgGradient="to-br"
                             gradientFrom="blue.50"
-                            gradientTo="cyan.50"
+                            gradientTo="blue.100"
                             _dark={{
                                 gradientFrom: "blue.950",
-                                gradientTo: "cyan.950",
+                                gradientTo: "blue.900",
                             }}
-                            borderRadius="2xl"
-                            shadow="md"
+                            borderRadius="3xl"
+                            shadow="lg"
                         >
                             <Card.Body>
-                                <HStack gap="3" align="start">
-                                    <Text fontSize="2xl">ℹ️</Text>
-                                    <VStack gap="2" align="start" flex="1">
-                                        <Text fontSize="md" fontWeight="bold" color="blue.700" _dark={{ color: "blue.300" }}>
+                                <VStack gap="4" align="stretch">
+                                    <HStack gap="3">
+                                        <Text fontSize="3xl">ℹ️</Text>
+                                        <Text fontSize="xl" fontWeight="black" color="blue.700" _dark={{ color: "blue.300" }}>
                                             About Burning IBC Coins
                                         </Text>
-                                        <Text fontSize="sm" color="fg.muted" lineHeight="1.6">
-                                            IBC coins cannot be directly burned since their origin is from another blockchain. Instead, the BeeZee blockchain will exchange these coins to BZE and burn the resulting BZE, but only if the IBC coin has enough liquidity paired directly with BZE.
-                                        </Text>
-                                    </VStack>
-                                </HStack>
+                                    </HStack>
+                                    <Text fontSize="sm" color="fg.muted" lineHeight="1.6">
+                                        IBC coins cannot be directly burned since their origin is from another blockchain. Instead, the BeeZee blockchain will exchange these coins to BZE and burn the resulting BZE, but only if the IBC coin has enough liquidity paired directly with BZE.
+                                    </Text>
+                                </VStack>
                             </Card.Body>
                         </Card.Root>
                     )}
@@ -634,11 +634,11 @@ export default function CoinDetailPage() {
                     {!isIBC && (isLP || (raffleData && lockedAmount && lockedAmount.amount.gt(0))) && (
                         <Card.Root
                             bgGradient="to-br"
-                            gradientFrom="purple.50"
-                            gradientTo="purple.100"
+                            gradientFrom="orange.50"
+                            gradientTo="orange.100"
                             _dark={{
-                                gradientFrom: "purple.950",
-                                gradientTo: "purple.900",
+                                gradientFrom: "orange.950",
+                                gradientTo: "orange.900",
                             }}
                             borderRadius="2xl"
                             shadow="lg"
@@ -646,23 +646,28 @@ export default function CoinDetailPage() {
                         >
                             <Card.Body>
                                 <VStack gap="2" align="center" py="4">
-                                    <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="purple.600" _dark={{ color: "purple.400" }} textTransform="uppercase">
+                                    <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
                                         🔒 Forever Locked
                                     </Text>
-                                    <VStack gap="1" align="center">
-                                        <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="purple.500" highlightColor="purple.500" highlightIntensity="evident">
-                                            {lockedAmount ? prettyAmount(lockedAmount.amount) : '0'}
-                                        </HighlightText>
-                                        <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
-                                            {asset.ticker}
-                                        </Text>
-                                        {lockedAmount && lockedAmount.usdValue.gt(0) && (
-                                            <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
-                                                ≈ ${prettyAmount(lockedAmount.usdValue)}
-                                            </Text>
-                                        )}
-                                    </VStack>
-                                    <Badge colorPalette="purple" variant="subtle" size="md" borderRadius="full">
+                                    {lockedAmount ? (
+                                        <VStack gap="1" align="center">
+                                            <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
+                                                {prettyAmount(lockedAmount.amount)}
+                                            </HighlightText>
+                                            {lockedAmount.usdValue.gt(0) && (
+                                                <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
+                                                    ≈ ${prettyAmount(lockedAmount.usdValue)}
+                                                </Text>
+                                            )}
+                                        </VStack>
+                                    ) : (
+                                        <VStack gap="1" align="center">
+                                            <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
+                                                0
+                                            </HighlightText>
+                                        </VStack>
+                                    )}
+                                    <Badge colorPalette="orange" variant="subtle" size="md" borderRadius="full">
                                         Never Coming Back
                                     </Badge>
                                 </VStack>
@@ -717,52 +722,39 @@ export default function CoinDetailPage() {
                     {!isLoadingNextBurn && nextCoinBurn && (
                         <Card.Root
                             bgGradient="to-br"
-                            gradientFrom={isLP ? "purple.50" : "yellow.50"}
-                            gradientVia={isLP ? "purple.100" : "orange.100"}
-                            gradientTo={isLP ? "purple.100" : "red.100"}
+                            gradientFrom="orange.50"
+                            gradientTo="orange.100"
                             _dark={{
-                                gradientFrom: isLP ? "purple.950" : "orange.950",
-                                gradientVia: isLP ? "purple.900" : "orange.900",
-                                gradientTo: isLP ? "purple.950" : "red.950",
+                                gradientFrom: "orange.950",
+                                gradientTo: "orange.900",
                             }}
                             borderRadius="2xl"
                             shadow="lg"
                             transition="all 0.3s ease-in-out"
                         >
                             <Card.Body>
-                                <VStack gap="4" align="stretch">
-                                    <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="black" color={isLP ? "purple.600" : "orange.600"} _dark={{ color: isLP ? "purple.400" : "orange.400" }} textTransform="uppercase" textAlign="center">
+                                <VStack gap="2" align="center" py="4">
+                                    <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
                                         {isLP ? '🔒 Next Locking' : '🔥 Next Burning'}
                                     </Text>
-
-                                    <VStack gap="2" align="center">
-                                        <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                                            {isLP ? 'Ready to lock' : 'Ready to burn'}
-                                        </Text>
-                                        <HighlightText fontSize={{ base: "2xl", md: "3xl" }} fontWeight="black" color={isLP ? "purple.500" : "orange.500"} highlightColor={isLP ? "purple.500" : "orange.500"} highlightIntensity="evident">
-                                            {prettyAmount(nextCoinBurn.amount)} {asset.ticker}
+                                    <VStack gap="1" align="center">
+                                        <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
+                                            {prettyAmount(nextCoinBurn.amount)}
                                         </HighlightText>
                                         {nextCoinBurn.usdValue.gt(0) && (
-                                            <Text fontSize={{ base: "sm", md: "md" }} color="fg.muted" fontWeight="medium">
+                                            <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold">
                                                 ≈ ${prettyAmount(nextCoinBurn.usdValue)}
                                             </Text>
                                         )}
                                     </VStack>
-
-                                    <Box textAlign="center">
-                                        <Text fontSize="xs" color="fg.muted" fontWeight="bold" mb="1">
-                                            SCHEDULED FOR
-                                        </Text>
-                                        <Badge colorPalette={isLP ? "purple" : "orange"} size="md" variant="solid">
-                                            {nextCoinBurn.date.toLocaleString('en-US', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </Badge>
-                                    </Box>
+                                    <Badge colorPalette="orange" variant="subtle" size="md" borderRadius="full">
+                                        {nextCoinBurn.date.toLocaleString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
+                                    </Badge>
                                 </VStack>
                             </Card.Body>
                         </Card.Root>
@@ -896,7 +888,7 @@ export default function CoinDetailPage() {
                                             This coins hasn&apos;t been burned yet. Be the first to toss it into the fire!
                                         </Text>
                                         <Button
-                                            colorPalette={isLP ? "purple" : "orange"}
+                                            colorPalette={"orange"}
                                             onClick={() => setIsBurnModalOpen(true)}
                                             mt="2"
                                         >

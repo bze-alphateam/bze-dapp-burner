@@ -119,7 +119,7 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                             />
                         )}
                     </Box>
-                    <VStack gap="0" align="start" flex="1">
+                    <VStack gap="0" align="start" flex="1" ml={3}>
                         <Text fontSize="lg" fontWeight="bold">{name}</Text>
                         <Text fontSize="sm" color="fg.muted" fontWeight="medium">
                             {ticker}

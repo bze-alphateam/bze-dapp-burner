@@ -196,19 +196,6 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
             position="relative"
             overflow="hidden"
         >
-            {/* Decorative flame emoji */}
-            <Text
-                position="absolute"
-                top="2"
-                right="2"
-                fontSize="2xl"
-                style={{
-                    animation: "flicker 2s infinite"
-                }}
-            >
-                🔥
-            </Text>
-
             <VStack gap="3" align="center">
                 <Box
                     p="2"
@@ -488,7 +475,7 @@ export default function BurnerHomePage() {
                         <Card.Body>
                             <VStack gap="2" align="center" py="6">
                                 <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
-                                    💰 Total {nativeAsset?.ticker || 'BZE'} Incinerated
+                                    🔥 Total {nativeAsset?.ticker || 'BZE'} Incinerated
                                 </Text>
                                 {isLoadingHistory ? (
                                     <Text fontSize="md" color="fg.muted">
@@ -520,7 +507,7 @@ export default function BurnerHomePage() {
                                 <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black">
                                     🔒 Forever Locked
                                 </Text>
-                                <Badge colorPalette="purple" size="lg" variant="solid" borderRadius="full">
+                                <Badge colorPalette="orange" size="lg" variant="solid" borderRadius="full">
                                     {lockedTokens.length} {lockedTokens.length === 1 ? 'coin' : 'coins'}
                                 </Badge>
                             </HStack>
@@ -529,25 +516,30 @@ export default function BurnerHomePage() {
                             {totalLockedUsdValue.gt(0) && (
                                 <Card.Root
                                     bgGradient="to-br"
-                                    gradientFrom="purple.50"
-                                    gradientTo="purple.100"
+                                    gradientFrom="orange.50"
+                                    gradientTo="orange.100"
                                     _dark={{
-                                        gradientFrom: "purple.950",
-                                        gradientTo: "purple.900",
+                                        gradientFrom: "orange.950",
+                                        gradientTo: "orange.900",
                                     }}
                                     borderRadius="2xl"
-                                    shadow="md"
+                                    shadow="lg"
+                                    transition="all 0.3s ease-in-out"
+                                    borderWidth="1px"
+                                    borderColor="orange.200"
                                     mb="5"
                                 >
                                     <Card.Body>
-                                        <VStack gap="2" align="center" py="4">
-                                            <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="purple.600" _dark={{ color: "purple.400" }} textTransform="uppercase">
-                                                💎 Total Value Locked Forever
+                                        <VStack gap="2" align="center" py="6">
+                                            <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
+                                                🔒 Total Value Locked Forever
                                             </Text>
-                                            <HighlightText fontSize={{ base: "2xl", md: "3xl", lg: "4xl" }} fontWeight="black" color="purple.500" highlightColor="purple.500" highlightIntensity="evident">
-                                                ${prettyAmount(totalLockedUsdValue)}
-                                            </HighlightText>
-                                            <Badge colorPalette="purple" variant="subtle" size="md" borderRadius="full">
+                                            <VStack gap="1" align="center">
+                                                <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
+                                                    ${prettyAmount(totalLockedUsdValue)}
+                                                </HighlightText>
+                                            </VStack>
+                                            <Badge colorPalette="orange" variant="subtle" size="md" borderRadius="full">
                                                 Never Coming Back
                                             </Badge>
                                         </VStack>
@@ -566,7 +558,7 @@ export default function BurnerHomePage() {
                                 <Box display={{ base: "none", md: "block" }} overflowX="auto">
                                     <Table.Root size="md" variant="outline">
                                         <Table.Header>
-                                            <Table.Row bg="purple.100" _dark={{ bg: "purple.900" }}>
+                                            <Table.Row bg="orange.100" _dark={{ bg: "orange.900" }}>
                                                 <Table.ColumnHeader fontWeight="black">Coin</Table.ColumnHeader>
                                                 <Table.ColumnHeader fontWeight="black">Name</Table.ColumnHeader>
                                                 <Table.ColumnHeader fontWeight="black">Amount Locked</Table.ColumnHeader>
@@ -598,8 +590,8 @@ export default function BurnerHomePage() {
                                                         cursor="pointer"
                                                         onClick={() => handleCoinClick(token.denom)}
                                                         _hover={{
-                                                            bg: "purple.50",
-                                                            _dark: { bg: "purple.950" }
+                                                            bg: "orange.50",
+                                                            _dark: { bg: "orange.950" }
                                                         }}
                                                         transition="all 0.2s"
                                                     >
@@ -607,8 +599,8 @@ export default function BurnerHomePage() {
                                                             <HStack gap="3">
                                                                 <Box
                                                                     p="1"
-                                                                    bg="purple.50"
-                                                                    _dark={{ bg: "purple.950" }}
+                                                                    bg="orange.50"
+                                                                    _dark={{ bg: "orange.950" }}
                                                                     borderRadius="full"
                                                                     width={isLP ? "52px" : "auto"}
                                                                     display="flex"
@@ -640,7 +632,7 @@ export default function BurnerHomePage() {
                                                             </Text>
                                                         </Table.Cell>
                                                         <Table.Cell>
-                                                            <Text fontWeight="black" fontSize="md" color="purple.500">
+                                                            <Text fontWeight="black" fontSize="md" color="orange.500">
                                                                 {formattedAmount} {token.ticker}
                                                             </Text>
                                                         </Table.Cell>
