@@ -79,10 +79,7 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
                 gradientFrom: "purple.950",
                 gradientVia: "pink.950",
                 gradientTo: "orange.950",
-                borderColor: "purple.500"
             }}
-            borderWidth="3px"
-            borderColor="purple.400"
             borderRadius="3xl"
             shadow="lg"
             cursor="pointer"
@@ -91,7 +88,6 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
             _hover={{
                 transform: "translateY(-4px) rotate(1deg)",
                 shadow: "2xl",
-                borderColor: "purple.500",
             }}
         >
             <Card.Body>
@@ -231,10 +227,7 @@ export default function RafflesPage() {
                         _dark={{
                             gradientFrom: "blue.950",
                             gradientTo: "blue.900",
-                            borderColor: "blue.500"
                         }}
-                        borderWidth="3px"
-                        borderColor="blue.300"
                         borderRadius="3xl"
                         shadow="lg"
                     >

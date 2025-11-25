@@ -95,8 +95,6 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                 p="4"
                 bg="bg.muted"
                 borderRadius="lg"
-                borderWidth="1px"
-                borderColor="border"
             >
                 <HStack gap="3">
                     <Box
@@ -136,11 +134,8 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                 bg="orange.50"
                 _dark={{
                     bg: "gray.800",
-                    borderColor: "orange.500"
                 }}
                 borderRadius="lg"
-                borderWidth="1px"
-                borderColor="orange.300"
             >
                 <HStack justify="space-between">
                     <Text fontSize="sm" fontWeight="medium">
@@ -281,8 +276,6 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                     <Dialog.Content
                         maxW={{ base: "90vw", md: "500px" }}
                         borderRadius="2xl"
-                        borderWidth="3px"
-                        borderColor="orange.400"
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
@@ -301,11 +294,8 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                     bg="red.50"
                                     _dark={{
                                         bg: "gray.800",
-                                        borderColor: "orange.500"
                                     }}
                                     borderRadius="xl"
-                                    borderWidth="2px"
-                                    borderColor="red.300"
                                 >
                                     <VStack gap="2" align="center">
                                         <Text fontSize="3xl">⚠️</Text>
@@ -369,11 +359,8 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                         bg="orange.50"
                                         _dark={{
                                             bg: "gray.800",
-                                            borderColor: "orange.500"
                                         }}
                                         borderRadius="lg"
-                                        borderWidth="1px"
-                                        borderColor="orange.300"
                                     >
                                         <HStack justify="space-between">
                                             <Text fontSize="sm" fontWeight="medium">
@@ -426,9 +413,6 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                         p="4"
                                         bg="bg.muted"
                                         borderRadius="lg"
-                                        borderWidth="2px"
-                                        borderColor="orange.200"
-                                        _dark={{ borderColor: "orange.800" }}
                                     >
                                         <VStack gap="2" align="stretch">
                                             <Text fontSize="sm" fontWeight="bold" textAlign="center">

@@ -79,8 +79,6 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                     <Dialog.Content
                         maxW={{ base: "90vw", md: "500px" }}
                         borderRadius="2xl"
-                        borderWidth="3px"
-                        borderColor="orange.400"
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
@@ -115,8 +113,6 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                                     maxH="400px"
                                     overflowY="auto"
                                     borderRadius="lg"
-                                    borderWidth="1px"
-                                    borderColor="border"
                                 >
                                     {isLoading ? (
                                         <Box p="8" textAlign="center">

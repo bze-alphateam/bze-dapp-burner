@@ -185,13 +185,10 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
             p="5"
             bg="bg.panel"
             borderRadius="3xl"
-            borderWidth="3px"
-            borderColor="orange.400"
             shadow="lg"
             cursor="pointer"
             onClick={onClick}
             _hover={{
-                borderColor: "orange.500",
                 shadow: "2xl",
                 transform: "translateY(-4px) rotate(1deg)",
             }}
@@ -378,8 +375,6 @@ export default function BurnerHomePage() {
                             gradientVia: "orange.900",
                             gradientTo: "red.950",
                         }}
-                        borderWidth="4px"
-                        borderColor="orange.400"
                         borderRadius="3xl"
                         shadow="2xl"
                     >
@@ -455,8 +450,6 @@ export default function BurnerHomePage() {
                             gradientFrom: "orange.950",
                             gradientTo: "orange.900",
                         }}
-                        borderWidth="2px"
-                        borderColor="orange.300"
                         borderRadius="2xl"
                         shadow="md"
                     >
@@ -502,9 +495,6 @@ export default function BurnerHomePage() {
                         </HStack>
                         <Box
                             borderRadius="2xl"
-                            borderWidth="3px"
-                            borderColor="orange.300"
-                            _dark={{ borderColor: "orange.700" }}
                             overflow="hidden"
                             bg="bg.panel"
                             shadow="lg"

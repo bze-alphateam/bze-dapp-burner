@@ -314,10 +314,7 @@ export default function CoinDetailPage() {
                         _dark={{
                             gradientFrom: "orange.950",
                             gradientTo: "orange.900",
-                            borderColor: "orange.500"
                         }}
-                        borderWidth="4px"
-                        borderColor="orange.300"
                         borderRadius="3xl"
                         shadow="lg"
                     >
@@ -401,10 +398,7 @@ export default function CoinDetailPage() {
                                         gradientFrom: "purple.950",
                                         gradientVia: "pink.950",
                                         gradientTo: "orange.950",
-                                        borderColor: "purple.500"
                                     }}
-                                    borderWidth="4px"
-                                    borderColor="purple.400"
                                     borderRadius="3xl"
                                     shadow="xl"
                                 >
@@ -518,11 +512,6 @@ export default function CoinDetailPage() {
                                                                     bg="white"
                                                                     _dark={{ bg: "gray.800" }}
                                                                     borderRadius="md"
-                                                                    borderWidth={isCurrentUser ? "1px" : "0"}
-                                                                    borderColor={isCurrentUser ? "green.300" : "transparent"}
-                                                                    _light={{
-                                                                        borderColor: isCurrentUser ? "green.400" : "transparent"
-                                                                    }}
                                                                 >
                                                                     <HStack gap="2">
                                                                         <Text fontSize="sm" fontFamily="mono" color="fg.muted" fontWeight={isCurrentUser ? "semibold" : "normal"}>
@@ -558,10 +547,7 @@ export default function CoinDetailPage() {
                         _dark={{
                             gradientFrom: "orange.950",
                             gradientTo: "orange.900",
-                            borderColor: "orange.500"
                         }}
-                        borderWidth="3px"
-                        borderColor="orange.300"
                         borderRadius="2xl"
                         shadow="lg"
                         transition="all 0.3s ease-in-out"
@@ -605,10 +591,7 @@ export default function CoinDetailPage() {
                                 gradientFrom: "orange.950",
                                 gradientVia: "orange.900",
                                 gradientTo: "red.950",
-                                borderColor: "orange.500"
                             }}
-                            borderWidth="3px"
-                            borderColor="orange.400"
                             borderRadius="2xl"
                             shadow="lg"
                             transition="all 0.3s ease-in-out"
@@ -668,9 +651,6 @@ export default function CoinDetailPage() {
                         ) : burnHistory.length > 0 ? (
                             <Box
                                 borderRadius="3xl"
-                                borderWidth="3px"
-                                borderColor="orange.300"
-                                _dark={{ borderColor: "orange.700" }}
                                 overflow="hidden"
                                 bg="bg.panel"
                                 shadow="xl"

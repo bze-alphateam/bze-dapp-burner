@@ -15,8 +15,6 @@ export const RaffleInfoModal = ({ isOpen, onClose }: RaffleInfoModalProps) => {
                     <Dialog.Content
                         maxW={{ base: "90vw", md: "600px" }}
                         borderRadius="2xl"
-                        borderWidth="3px"
-                        borderColor="blue.400"
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
