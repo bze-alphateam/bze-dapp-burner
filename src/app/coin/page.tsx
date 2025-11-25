@@ -66,7 +66,7 @@ export default function CoinDetailPage() {
     const { winners, raffle: coinRaffle, isLoading: isLoadingRaffles } = useRaffle(denom || '');
 
     // Raffle contributions management
-    const { getPendingContribution, removePendingContribution } = useRaffleContributions();
+    const { getPendingContribution, removePendingContribution, markAsClosed } = useRaffleContributions();
 
     // Get next burning info for this specific coin
     const nextCoinBurn = useMemo(() => {
@@ -197,12 +197,18 @@ export default function CoinDetailPage() {
 
     const handleRaffleAnimationClose = useCallback(() => {
         if (denom) {
-            // Remove the pending contribution when user closes
-            removePendingContribution(denom);
+            const contribution = getPendingContribution(denom);
+            if (contribution && !contribution.isComplete) {
+                // Mark as closed so background processing can show toasts
+                markAsClosed(denom);
+            } else {
+                // If already complete, just remove it
+                removePendingContribution(denom);
+            }
         }
         setShowRaffleAnimation(null);
         setCurrentResultIndex(0);
-    }, [denom, removePendingContribution]);
+    }, [denom, getPendingContribution, markAsClosed, removePendingContribution]);
 
     const handleNextTicket = useCallback(() => {
         // Move to the next result
@@ -214,6 +220,12 @@ export default function CoinDetailPage() {
         if (!denom) return null;
         return getPendingContribution(denom);
     }, [denom, getPendingContribution]);
+
+    // Check if raffle contribution is in progress (not complete)
+    const isRaffleInProgress = useMemo(() => {
+        if (!currentRaffleContribution) return false;
+        return !currentRaffleContribution.isComplete;
+    }, [currentRaffleContribution]);
 
     // Get current result amount (if any)
     const currentResultAmount = useMemo(() => {
@@ -424,6 +436,8 @@ export default function CoinDetailPage() {
                                                     size={{ base: "md", md: "lg" }}
                                                     fontWeight="bold"
                                                     onClick={handleRaffleClick}
+                                                    loading={isRaffleInProgress}
+                                                    loadingText="Joined..."
                                                 >
                                                     🎫 Join Raffle
                                                 </Button>

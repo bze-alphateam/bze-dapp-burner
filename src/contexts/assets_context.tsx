@@ -31,6 +31,7 @@ import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
 import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
 import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
 import {checkAddressWonRaffle, getRaffles, getRaffleWinners} from "@/query/raffle";
+import {useToast} from "@/hooks/useToast";
 
 export interface TicketResult {
     hasWon: boolean;
@@ -148,6 +149,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [settingsVersion, setSettingsVersion] = useState(0);
 
     const {address} = useChain(getChainName());
+    const {toast} = useToast();
 
     const doUpdateNextBurn = useCallback((next?: NextBurn) => {
         // if (!next) return;
@@ -438,10 +440,17 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
 
         const contributions = Array.from(pendingRaffleContributions.values());
         const updates: Map<string, PendingRaffleContribution> = new Map();
+        const toRemove: string[] = [];
 
         for (const contribution of contributions) {
             // Skip if already complete
-            if (contribution.isComplete) continue;
+            if (contribution.isComplete) {
+                // If complete AND closed, remove it
+                if (contribution.wasClosed) {
+                    toRemove.push(contribution.denom);
+                }
+                continue;
+            }
 
             // Calculate which block to check: submission block + 2 + current ticket index
             const checkBlock = contribution.blockHeight + 2 + contribution.currentTicket;
@@ -463,6 +472,60 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             const nextTicket = contribution.currentTicket + 1;
             const isComplete = nextTicket >= contribution.tickets;
 
+            // If contribution was closed by user, show toast for this result
+            if (contribution.wasClosed) {
+                const asset = assetsMap.get(contribution.denom);
+                const ticker = asset?.ticker || contribution.denom;
+                const contributionNumber = contribution.currentTicket + 1;
+
+                if (result.hasWon) {
+                    const decimals = asset?.decimals || 6;
+                    const amountBN = uAmountToBigNumberAmount(result.amount, decimals);
+                    toast.success(`${ticker} Raffle Contribution #${contributionNumber}`,
+                        `🎉 You won ${amountBN.toFixed(2)} ${ticker}!`,
+                    );
+                } else {
+                    toast.warning(
+                    `${ticker} Raffle Contribution #${contributionNumber}`,
+                     `Better luck next time! 🍀`,
+                    );
+                }
+
+                // If this was the last ticket, show summary and mark for removal
+                if (isComplete) {
+                    // Calculate summary stats
+                    let totalWon = BigNumber(0);
+                    let winnersCount = 0;
+
+                    [...newResults].forEach(r => {
+                        if (r.hasWon) {
+                            winnersCount++;
+                            const decimals = asset?.decimals || 6;
+                            const amount = uAmountToBigNumberAmount(r.amount, decimals);
+                            totalWon = totalWon.plus(amount);
+                        }
+                    });
+
+                    // Show summary toast
+                    if (winnersCount > 0) {
+                        toast.success(
+                            `${ticker} Raffle Complete! 🎊`,
+                           `Won ${winnersCount}/${contribution.tickets} contributions • Total: ${totalWon.toFixed(2)} ${ticker}`,
+                            10 * 1000
+                        );
+                    } else {
+                        toast.info(
+                            `${ticker} Raffle Complete`,
+                           `All ${contribution.tickets} ${contribution.tickets === 1 ? 'contribution' : 'contributions'} processed. Better luck next time! 🍀`,
+                            10 * 1000
+                        );
+                    }
+
+                    toRemove.push(contribution.denom);
+                    continue; // Don't add to updates
+                }
+            }
+
             updates.set(contribution.denom, {
                 ...contribution,
                 currentTicket: nextTicket,
@@ -471,17 +534,20 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             });
         }
 
-        // Apply all updates at once
-        if (updates.size > 0) {
+        // Apply all updates and removals at once
+        if (updates.size > 0 || toRemove.length > 0) {
             setPendingRaffleContributions(prev => {
                 const newMap = new Map(prev);
                 updates.forEach((value, key) => {
                     newMap.set(key, value);
                 });
+                toRemove.forEach(denom => {
+                    newMap.delete(denom);
+                });
                 return newMap;
             });
         }
-    }, [address, pendingRaffleContributions]);
+    }, [address, pendingRaffleContributions, assetsMap, toast]);
 
     useEffect(() => {
         setIsLoading(true)
