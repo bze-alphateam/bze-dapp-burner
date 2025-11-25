@@ -9,6 +9,7 @@ import {addDebounce, addMultipleDebounce} from "@/utils/debounce";
 import {CONNECTION_TYPE_NONE, CONNECTION_TYPE_POLLING, CONNECTION_TYPE_WS} from "@/types/settings";
 
 const POLLING_INTERVAL = 10 * 1000;
+const RAFFLE_POLLING_INTERVAL = 7 * 1000;
 
 export function BlockchainListenerWrapper() {
     const {isConnected} = useBlockchainListener();
@@ -24,6 +25,7 @@ export function BlockchainListenerWrapper() {
         const removeFallback = () => addDebounce('connection-type-none', 500, () => {})
 
         let pollingInterval: NodeJS.Timeout;
+        let rafflePollingInterval: NodeJS.Timeout;
         const unsubscribers: (() => void)[] = [];
         if (!isConnected) {
             // use POLLING
@@ -45,6 +47,11 @@ export function BlockchainListenerWrapper() {
                 //this will start the fallback again, resetting the timer when it should trigger
                 fallbackToNone();
             }, POLLING_INTERVAL)
+
+            // Faster polling for pending raffle contributions (7 seconds to match ~6 second block time)
+            rafflePollingInterval = setInterval(() => {
+                processPendingRaffleContributions()
+            }, RAFFLE_POLLING_INTERVAL)
         } else {
             // use WS EVENTS
             removeFallback();
@@ -90,6 +97,9 @@ export function BlockchainListenerWrapper() {
         return () => {
             if (pollingInterval) {
                 clearInterval(pollingInterval)
+            }
+            if (rafflePollingInterval) {
+                clearInterval(rafflePollingInterval)
             }
 
             removeFallback()
