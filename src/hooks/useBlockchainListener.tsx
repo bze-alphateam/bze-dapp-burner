@@ -4,7 +4,7 @@ import {useChain} from "@interchain-kit/react";
 import {getChainName} from "@/constants/chain";
 import {blockchainEventManager} from "@/service/blockchain_event_manager";
 import {
-    CURRENT_WALLET_BALANCE_EVENT,
+    CURRENT_WALLET_BALANCE_EVENT, EPOCH_START_EVENT,
     LOCK_CHANGED_EVENT,
     NEXT_BURN_CHANGED_EVENT,
     ORDER_BOOK_CHANGED_EVENT,
@@ -75,6 +75,10 @@ const isCoinbaseEvent = (event: TendermintEvent) => {
     return event.type.includes('coinbase');
 };
 
+const isEpochStartEvent = (event: TendermintEvent) => {
+    return event.type.includes('bze.epochs.EpochStartEvent');
+};
+
 const isBurnEvent = (event: TendermintEvent) => {
     return event.type.includes('burn');
 };
@@ -143,6 +147,11 @@ export function useBlockchainListener() {
                 continue;
             }
 
+            if (isEpochStartEvent(event)) {
+                blockchainEventManager.emit(EPOCH_START_EVENT)
+                continue;
+            }
+
             if (isCoinbaseEvent(event)) {
                 //every block a new mint event is emitted for newly minted coins from the native asset. These coins are
                 //the rewards for validators and delegators (inflation).
@@ -150,7 +159,6 @@ export function useBlockchainListener() {
                 const mintedAmount = getMintedAmount(event);
                 for (const coin of mintedAmount) {
                     if (coin.denom !== getChainNativeAssetDenom()) {
-                        console.log(`Minted ${coin.amount} ${coin.denom}`)
                         // if at least 1 coin was minted that is not the native asset, we should emit ONLY ONE
                         // supply changed event.
                         blockchainEventManager.emit(SUPPLY_CHANGED_EVENT)
@@ -402,7 +410,6 @@ export function useBlockchainListener() {
 
             //tx events from Tx subscription
             if (data?.result?.data?.value?.TxResult?.result?.events) {
-                console.log("tx event from tx subscription", data)
                 onBlockEvent(data.result.data.value.TxResult.result.events)
             }
         };
