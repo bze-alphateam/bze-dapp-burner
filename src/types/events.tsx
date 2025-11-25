@@ -22,3 +22,4 @@ export const ORDER_BOOK_CHANGED_EVENT = "order_book_changed";
 export const SUPPLY_CHANGED_EVENT = "supply_changed";
 export const NEXT_BURN_CHANGED_EVENT = "next_burn_changed";
 export const RAFFLE_CHANGED_EVENT = "raffle_changed";
+export const LOCK_CHANGED_EVENT = "lock_address_changed";

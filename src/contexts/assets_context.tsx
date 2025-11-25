@@ -32,6 +32,7 @@ import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
 import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
 import {checkAddressWonRaffle, getRaffles, getRaffleWinners} from "@/query/raffle";
 import {useToast} from "@/hooks/useToast";
+import {getHardcodedLockAddress} from "@/query/module";
 
 export interface TicketResult {
     hasWon: boolean;
@@ -66,6 +67,9 @@ export interface AssetsContextType {
 
     balancesMap: Map<string, Balance>;
     updateBalances: () => void;
+
+    lockBalance: Map<string, Balance>;
+    updateLockBalance: () => void;
 
     // holds a map denom => USD price
     // assets with price 0 will be in this map
@@ -146,6 +150,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [raffles, setRaffles] = useState<Map<string, RaffleSDKType>>(new Map())
     const [raffleWinners, setRaffleWinners] = useState<Map<string, RaffleWinnerSDKType[]>>(new Map())
     const [pendingRaffleContributions, setPendingRaffleContributions] = useState<Map<string, PendingRaffleContribution>>(new Map())
+    const [lockBalance, setLockBalance] = useState<Map<string, Balance>>(new Map())
     const [settingsVersion, setSettingsVersion] = useState(0);
 
     const {address} = useChain(getChainName());
@@ -220,6 +225,15 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         })
 
         setBalancesMap(newMap);
+    }, []);
+
+    const doUpdateLockBalance = useCallback((newBalances: Coin[]) => {
+        const newMap = new Map<string, Balance>();
+        newBalances.forEach(balance => {
+            newMap.set(balance.denom, {denom: balance.denom, amount: new BigNumber(balance.amount)});
+        })
+
+        setLockBalance(newMap);
     }, []);
     const doUpdatePrices = useCallback(async () => {
         if (assetsMap.size === 0 || marketsMap.size === 0 || !marketsDataMap) return;
@@ -370,6 +384,14 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         const newBalances = await getAddressBalances(address)
         doUpdateBalances(newBalances)
     }, [doUpdateBalances, address]);
+
+    const updateLockBalance = useCallback(async () => {
+        const lockAddress = getHardcodedLockAddress();
+        if (!lockAddress) return;
+
+        const newBalances = await getAddressBalances(lockAddress)
+        doUpdateLockBalance(newBalances)
+    }, [doUpdateLockBalance]);
     const updateEpochs = useCallback(async () => {
         const newEpochs = await getEpochsInfo()
         doUpdateEpochs(newEpochs.epochs)
@@ -581,6 +603,13 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             doUpdateBurnHistory(burnHistory.burnedCoins)
             doUpdateRaffles(raffles)
 
+            // Load lock balance
+            const lockAddress = getHardcodedLockAddress();
+            if (lockAddress) {
+                const lockBalances = await getAddressBalances(lockAddress);
+                doUpdateLockBalance(lockBalances);
+            }
+
             setIsLoading(false)
         }
 
@@ -625,6 +654,8 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             updateMarketsData,
             balancesMap,
             updateBalances,
+            lockBalance,
+            updateLockBalance,
             ibcChains,
             usdPricesMap,
             isLoadingPrices,

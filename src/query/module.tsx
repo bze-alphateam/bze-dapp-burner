@@ -21,11 +21,19 @@ function getHardcodedRaffleddress(): string {
     return 'bze18hsqalgwlzqavrrkfnxmrjmygwyjy8senx5tgs';
 }
 
-export async function getBurnerModuleAddress(): Promise<string> {
+export function getHardcodedLockAddress(): string {
+    if (isTestnetChain()) {
+        return 'testbz1pc5zjcvhx3e8l305zjl72grytfa30r5m0urshr';
+    }
+
+    return 'bze18hsqalgwlzqavrrkfnxmrjmygwyjy8senx5tgs';
+}
+
+export function getBurnerModuleAddress(): string {
     return getHardcodedBurnerAddress();
 }
 
-export async function getRaffleModuleAddress(): Promise<string> {
+export function getRaffleModuleAddress(): string {
     return getHardcodedRaffleddress()
 }
 
