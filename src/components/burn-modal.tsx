@@ -158,16 +158,11 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
 
     // Get assets and balances
     const { getAsset, denomDecimals } = useAssets();
-    const { getAssetsBalances } = useBalances();
+    const { assetsBalances: assetsWithBalances } = useBalances();
     const { balance } = useBalance(selectedCoin);
     const { address } = useChain(getChainName());
     const { toast } = useToast()
     const { tx } = useBZETx()
-
-    // Get assets with balances
-    const assetsWithBalances = useMemo(() => {
-        return getAssetsBalances();
-    }, [getAssetsBalances]);
 
     // Reset form when modal opens
     useEffect(() => {
