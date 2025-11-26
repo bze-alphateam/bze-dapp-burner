@@ -95,8 +95,6 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
                     <HStack gap="3">
                         <Box
                             p="2"
-                            bg="white"
-                            _dark={{ bg: "gray.900" }}
                             borderRadius="full"
                         >
                             {asset && <AssetLogo asset={asset} size="40px" /> }

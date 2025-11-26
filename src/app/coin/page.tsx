@@ -356,8 +356,6 @@ export default function CoinDetailPage() {
                                     <HStack gap="4">
                                         <Box
                                             p="3"
-                                            bg="white"
-                                            _dark={{ bg: "gray.900" }}
                                             borderRadius="full"
                                         >
                                             <AssetLogo asset={asset} size="64px" />

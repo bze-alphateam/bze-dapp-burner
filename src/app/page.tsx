@@ -191,8 +191,6 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
             <VStack gap="3" align="center">
                 <Box
                     p="2"
-                    bg="orange.50"
-                    _dark={{ bg: "orange.950" }}
                     borderRadius="full"
                     width={isLP ? "80px" : "auto"}
                     display="flex"
@@ -564,8 +562,6 @@ export default function BurnerHomePage() {
                                                             <HStack gap="3">
                                                                 <Box
                                                                     p="1"
-                                                                    bg="orange.50"
-                                                                    _dark={{ bg: "orange.950" }}
                                                                     borderRadius="full"
                                                                     width={isLP ? "52px" : "auto"}
                                                                     display="flex"
@@ -628,8 +624,6 @@ export default function BurnerHomePage() {
                                                         <HStack gap="3">
                                                             <Box
                                                                 p="1"
-                                                                bg="purple.50"
-                                                                _dark={{ bg: "purple.950" }}
                                                                 borderRadius="full"
                                                                 width={isLP ? "56px" : "auto"}
                                                                 display="flex"
@@ -743,8 +737,6 @@ export default function BurnerHomePage() {
                                                             <HStack gap="3">
                                                                 <Box
                                                                     p="1"
-                                                                    bg="orange.50"
-                                                                    _dark={{ bg: "orange.950" }}
                                                                     borderRadius="full"
                                                                     width={isLP ? "52px" : "auto"}
                                                                     display="flex"
@@ -837,8 +829,6 @@ export default function BurnerHomePage() {
                                                         <HStack gap="3">
                                                             <Box
                                                                 p="1"
-                                                                bg="orange.50"
-                                                                _dark={{ bg: "orange.950" }}
                                                                 borderRadius="full"
                                                                 width={isLP ? "56px" : "auto"}
                                                                 display="flex"

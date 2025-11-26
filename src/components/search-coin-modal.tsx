@@ -137,8 +137,6 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                                                         <HStack gap="3">
                                                             <Box
                                                                 p="1"
-                                                                bg="orange.50"
-                                                                _dark={{ bg: "orange.950" }}
                                                                 borderRadius="full"
                                                             >
                                                                 <AssetLogo asset={coin} size="40px" />

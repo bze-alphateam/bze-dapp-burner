@@ -25,8 +25,6 @@ export const LPTokenLogo = ({
                 position="relative"
                 zIndex={0}
                 borderRadius="full"
-                borderWidth="2px"
-                borderColor="bg.canvas"
                 bg="bg.canvas"
             >
                 <TokenLogo
@@ -42,8 +40,6 @@ export const LPTokenLogo = ({
                 zIndex={1}
                 ml="-3"
                 borderRadius="full"
-                borderWidth="2px"
-                borderColor="bg.canvas"
                 bg="bg.canvas"
             >
                 <TokenLogo
