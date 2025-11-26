@@ -4,15 +4,34 @@ import { useBlockchainListener } from '@/hooks/useBlockchainListener';
 import {useEffect} from "react";
 import {useAssetsContext} from "@/hooks/useAssets";
 import {blockchainEventManager} from "@/service/blockchain_event_manager";
-import {CURRENT_WALLET_BALANCE_EVENT, NEXT_BURN_CHANGED_EVENT, ORDER_EXECUTED_EVENT, RAFFLE_CHANGED_EVENT, SUPPLY_CHANGED_EVENT} from "@/types/events";
+import {
+    CURRENT_WALLET_BALANCE_EVENT,
+    EPOCH_START_EVENT,
+    LOCK_CHANGED_EVENT,
+    NEXT_BURN_CHANGED_EVENT,
+    ORDER_EXECUTED_EVENT,
+    RAFFLE_CHANGED_EVENT,
+    SUPPLY_CHANGED_EVENT
+} from "@/types/events";
 import {addDebounce, addMultipleDebounce} from "@/utils/debounce";
 import {CONNECTION_TYPE_NONE, CONNECTION_TYPE_POLLING, CONNECTION_TYPE_WS} from "@/types/settings";
 
 const POLLING_INTERVAL = 10 * 1000;
+const RAFFLE_POLLING_INTERVAL = 7 * 1000;
 
 export function BlockchainListenerWrapper() {
     const {isConnected} = useBlockchainListener();
-    const {updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles, processPendingRaffleContributions} = useAssetsContext()
+    const {
+        updateBalances,
+        updateMarketsData,
+        updateConnectionType,
+        updateAssets,
+        updateNextBurn,
+        updateRaffles,
+        processPendingRaffleContributions,
+        updateLockBalance,
+        updateEpochs,
+    } = useAssetsContext()
 
     useEffect(() => {
         //will call this to trigger the connection type change to NONE after (polling_interval * 2) seconds
@@ -24,6 +43,7 @@ export function BlockchainListenerWrapper() {
         const removeFallback = () => addDebounce('connection-type-none', 500, () => {})
 
         let pollingInterval: NodeJS.Timeout;
+        let rafflePollingInterval: NodeJS.Timeout;
         const unsubscribers: (() => void)[] = [];
         if (!isConnected) {
             // use POLLING
@@ -40,11 +60,18 @@ export function BlockchainListenerWrapper() {
                 updateAssets()
                 updateNextBurn()
                 updateRaffles()
+                updateLockBalance()
+                updateEpochs()
 
                 //reset the fallback debounce time
                 //this will start the fallback again, resetting the timer when it should trigger
                 fallbackToNone();
             }, POLLING_INTERVAL)
+
+            // Faster polling for pending raffle contributions (7 seconds to match ~6 second block time)
+            rafflePollingInterval = setInterval(() => {
+                processPendingRaffleContributions()
+            }, RAFFLE_POLLING_INTERVAL)
         } else {
             // use WS EVENTS
             removeFallback();
@@ -77,6 +104,14 @@ export function BlockchainListenerWrapper() {
                 // Process pending raffle contributions
                 addDebounce('process-pending-raffle-contributions', 200, processPendingRaffleContributions)
             })
+            //on lock address change refresh lock balance
+            const lockUnsubscribe = blockchainEventManager.subscribe(LOCK_CHANGED_EVENT, () => {
+                //use debounce to avoid multiple calls to updateLockBalance
+                addDebounce('refresh-lock-balance-func', 100, updateLockBalance)
+            })
+            const epochUnsubscribe = blockchainEventManager.subscribe(EPOCH_START_EVENT, () => {
+                addDebounce('refresh-epoch-func', 1000, updateEpochs)
+            })
 
             unsubscribers.push(
                 balanceUnsubscribe,
@@ -84,6 +119,8 @@ export function BlockchainListenerWrapper() {
                 updateAssetsUnsubscribe,
                 nextBurnUnsubscribe,
                 raffleUnsubscribe,
+                lockUnsubscribe,
+                epochUnsubscribe,
             )
         }
 
@@ -91,11 +128,14 @@ export function BlockchainListenerWrapper() {
             if (pollingInterval) {
                 clearInterval(pollingInterval)
             }
+            if (rafflePollingInterval) {
+                clearInterval(rafflePollingInterval)
+            }
 
             removeFallback()
             unsubscribers.forEach(unsubscribe => unsubscribe())
         };
-    }, [isConnected, updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles, processPendingRaffleContributions]);
+    }, [isConnected, updateBalances, updateMarketsData, updateConnectionType, updateAssets, updateNextBurn, updateRaffles, processPendingRaffleContributions, updateLockBalance, updateEpochs]);
 
     return null; // This component renders nothing, just runs the hook
 }

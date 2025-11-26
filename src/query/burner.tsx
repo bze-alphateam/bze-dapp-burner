@@ -71,7 +71,7 @@ export async function getAllBurnedCoins(): Promise<QueryAllBurnedCoinsResponseSD
 
 
 export async function getNextBurning(): Promise<NextBurn | undefined> {
-    const address = await getBurnerModuleAddress()
+    const address = getBurnerModuleAddress()
     if (address === '') {
         return undefined;
     }

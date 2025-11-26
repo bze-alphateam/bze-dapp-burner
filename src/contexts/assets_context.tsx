@@ -31,6 +31,8 @@ import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
 import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
 import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
 import {checkAddressWonRaffle, getRaffles, getRaffleWinners} from "@/query/raffle";
+import {useToast} from "@/hooks/useToast";
+import {getHardcodedLockAddress} from "@/query/module";
 
 export interface TicketResult {
     hasWon: boolean;
@@ -65,6 +67,9 @@ export interface AssetsContextType {
 
     balancesMap: Map<string, Balance>;
     updateBalances: () => void;
+
+    lockBalance: Map<string, Balance>;
+    updateLockBalance: () => void;
 
     // holds a map denom => USD price
     // assets with price 0 will be in this map
@@ -145,9 +150,11 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
     const [raffles, setRaffles] = useState<Map<string, RaffleSDKType>>(new Map())
     const [raffleWinners, setRaffleWinners] = useState<Map<string, RaffleWinnerSDKType[]>>(new Map())
     const [pendingRaffleContributions, setPendingRaffleContributions] = useState<Map<string, PendingRaffleContribution>>(new Map())
+    const [lockBalance, setLockBalance] = useState<Map<string, Balance>>(new Map())
     const [settingsVersion, setSettingsVersion] = useState(0);
 
     const {address} = useChain(getChainName());
+    const {toast} = useToast();
 
     const doUpdateNextBurn = useCallback((next?: NextBurn) => {
         // if (!next) return;
@@ -218,6 +225,15 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         })
 
         setBalancesMap(newMap);
+    }, []);
+
+    const doUpdateLockBalance = useCallback((newBalances: Coin[]) => {
+        const newMap = new Map<string, Balance>();
+        newBalances.forEach(balance => {
+            newMap.set(balance.denom, {denom: balance.denom, amount: new BigNumber(balance.amount)});
+        })
+
+        setLockBalance(newMap);
     }, []);
     const doUpdatePrices = useCallback(async () => {
         if (assetsMap.size === 0 || marketsMap.size === 0 || !marketsDataMap) return;
@@ -368,6 +384,14 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
         const newBalances = await getAddressBalances(address)
         doUpdateBalances(newBalances)
     }, [doUpdateBalances, address]);
+
+    const updateLockBalance = useCallback(async () => {
+        const lockAddress = getHardcodedLockAddress();
+        if (!lockAddress) return;
+
+        const newBalances = await getAddressBalances(lockAddress)
+        doUpdateLockBalance(newBalances)
+    }, [doUpdateLockBalance]);
     const updateEpochs = useCallback(async () => {
         const newEpochs = await getEpochsInfo()
         doUpdateEpochs(newEpochs.epochs)
@@ -438,10 +462,17 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
 
         const contributions = Array.from(pendingRaffleContributions.values());
         const updates: Map<string, PendingRaffleContribution> = new Map();
+        const toRemove: string[] = [];
 
         for (const contribution of contributions) {
             // Skip if already complete
-            if (contribution.isComplete) continue;
+            if (contribution.isComplete) {
+                // If complete AND closed, remove it
+                if (contribution.wasClosed) {
+                    toRemove.push(contribution.denom);
+                }
+                continue;
+            }
 
             // Calculate which block to check: submission block + 2 + current ticket index
             const checkBlock = contribution.blockHeight + 2 + contribution.currentTicket;
@@ -463,6 +494,60 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             const nextTicket = contribution.currentTicket + 1;
             const isComplete = nextTicket >= contribution.tickets;
 
+            // If contribution was closed by user, show toast for this result
+            if (contribution.wasClosed) {
+                const asset = assetsMap.get(contribution.denom);
+                const ticker = asset?.ticker || contribution.denom;
+                const contributionNumber = contribution.currentTicket + 1;
+
+                if (result.hasWon) {
+                    const decimals = asset?.decimals || 6;
+                    const amountBN = uAmountToBigNumberAmount(result.amount, decimals);
+                    toast.success(`${ticker} Raffle Contribution #${contributionNumber}`,
+                        `🎉 You won ${amountBN.toFixed(2)} ${ticker}!`,
+                    );
+                } else {
+                    toast.warning(
+                    `${ticker} Raffle Contribution #${contributionNumber}`,
+                     `Better luck next time! 🍀`,
+                    );
+                }
+
+                // If this was the last ticket, show summary and mark for removal
+                if (isComplete) {
+                    // Calculate summary stats
+                    let totalWon = BigNumber(0);
+                    let winnersCount = 0;
+
+                    [...newResults].forEach(r => {
+                        if (r.hasWon) {
+                            winnersCount++;
+                            const decimals = asset?.decimals || 6;
+                            const amount = uAmountToBigNumberAmount(r.amount, decimals);
+                            totalWon = totalWon.plus(amount);
+                        }
+                    });
+
+                    // Show summary toast
+                    if (winnersCount > 0) {
+                        toast.success(
+                            `${ticker} Raffle Complete! 🎊`,
+                           `Won ${winnersCount}/${contribution.tickets} contributions • Total: ${totalWon.toFixed(2)} ${ticker}`,
+                            10 * 1000
+                        );
+                    } else {
+                        toast.info(
+                            `${ticker} Raffle Complete`,
+                           `All ${contribution.tickets} ${contribution.tickets === 1 ? 'contribution' : 'contributions'} processed. Better luck next time! 🍀`,
+                            10 * 1000
+                        );
+                    }
+
+                    toRemove.push(contribution.denom);
+                    continue; // Don't add to updates
+                }
+            }
+
             updates.set(contribution.denom, {
                 ...contribution,
                 currentTicket: nextTicket,
@@ -471,17 +556,20 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             });
         }
 
-        // Apply all updates at once
-        if (updates.size > 0) {
+        // Apply all updates and removals at once
+        if (updates.size > 0 || toRemove.length > 0) {
             setPendingRaffleContributions(prev => {
                 const newMap = new Map(prev);
                 updates.forEach((value, key) => {
                     newMap.set(key, value);
                 });
+                toRemove.forEach(denom => {
+                    newMap.delete(denom);
+                });
                 return newMap;
             });
         }
-    }, [address, pendingRaffleContributions]);
+    }, [address, pendingRaffleContributions, assetsMap, toast]);
 
     useEffect(() => {
         setIsLoading(true)
@@ -514,6 +602,13 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             doUpdateNextBurn(nextBurn)
             doUpdateBurnHistory(burnHistory.burnedCoins)
             doUpdateRaffles(raffles)
+
+            // Load lock balance
+            const lockAddress = getHardcodedLockAddress();
+            if (lockAddress) {
+                const lockBalances = await getAddressBalances(lockAddress);
+                doUpdateLockBalance(lockBalances);
+            }
 
             setIsLoading(false)
         }
@@ -559,6 +654,8 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             updateMarketsData,
             balancesMap,
             updateBalances,
+            lockBalance,
+            updateLockBalance,
             ibcChains,
             usdPricesMap,
             isLoadingPrices,

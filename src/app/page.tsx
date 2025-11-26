@@ -18,17 +18,14 @@ import {useState, useMemo, useEffect, useCallback} from "react";
 import { useRouter } from "next/navigation";
 import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
-import { useAssets, useAsset } from "@/hooks/useAssets";
+import { useAssets, useAsset, useAssetsContext } from "@/hooks/useAssets";
 import { useAssetsValue } from "@/hooks/useAssetsValue";
-import { useLiquidityPools, useLiquidityPool } from "@/hooks/useLiquidityPools";
 import { useNextBurning } from "@/hooks/useNextBurning";
 import BigNumber from "bignumber.js";
-import { prettyAmount, uAmountToBigNumberAmount } from "@/utils/amount";
-import { TokenLogo } from "@/components/ui/token_logo";
-import { LPTokenLogo } from "@/components/ui/lp_token_logo";
+import {prettyAmount, uAmountToBigNumberAmount} from "@/utils/amount";
 import { HighlightText } from "@/components/ui/highlight";
 import { isLpDenom } from "@/utils/denom";
-import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 // Countdown Timer Component with playful design
 const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
@@ -159,14 +156,9 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
     const { asset } = useAsset(denom);
 
     const isLP = isLpDenom(denom);
-    const poolId = isLP ? poolIdFromPoolDenom(denom) : '';
-    const { pool } = useLiquidityPool(poolId);
-    const { asset: baseAsset } = useAsset(pool?.base || '');
-    const { asset: quoteAsset } = useAsset(pool?.quote || '');
 
     const ticker = asset?.ticker || denom;
     const name = asset?.name || denom;
-    const logo = asset?.logo || "/images/token.svg";
 
     const decimals = denomDecimals(denom);
     const prettyAmountValue = useMemo(() => {
@@ -185,13 +177,10 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
             p="5"
             bg="bg.panel"
             borderRadius="3xl"
-            borderWidth="3px"
-            borderColor="orange.400"
             shadow="lg"
             cursor="pointer"
             onClick={onClick}
             _hover={{
-                borderColor: "orange.500",
                 shadow: "2xl",
                 transform: "translateY(-4px) rotate(1deg)",
             }}
@@ -199,45 +188,16 @@ const PendingBurnBox = ({ denom, amount, onClick }: {
             position="relative"
             overflow="hidden"
         >
-            {/* Decorative flame emoji */}
-            <Text
-                position="absolute"
-                top="2"
-                right="2"
-                fontSize="2xl"
-                style={{
-                    animation: "flicker 2s infinite"
-                }}
-            >
-                🔥
-            </Text>
-
             <VStack gap="3" align="center">
                 <Box
                     p="2"
-                    bg="orange.50"
-                    _dark={{ bg: "orange.950" }}
                     borderRadius="full"
                     width={isLP ? "80px" : "auto"}
                     display="flex"
                     justifyContent="center"
                     alignItems="center"
                 >
-                    {isLP && baseAsset && quoteAsset ? (
-                        <LPTokenLogo
-                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                            baseAssetSymbol={baseAsset.ticker}
-                            quoteAssetSymbol={quoteAsset.ticker}
-                            size="56px"
-                        />
-                    ) : (
-                        <TokenLogo
-                            src={logo}
-                            symbol={ticker}
-                            size="56px"
-                        />
-                    )}
+                    {asset && (<AssetLogo asset={asset} size="56px"/>)}
                 </Box>
                 <VStack gap="1" align="center">
                     <Text fontSize="sm" color="fg.muted" fontWeight="medium">
@@ -276,8 +236,8 @@ export default function BurnerHomePage() {
     const { burnHistory, isLoading: isLoadingHistory } = useBurningHistory();
     const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
-    const { getPoolByLpDenom } = useLiquidityPools();
     const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
+    const { lockBalance } = useAssetsContext();
 
     // Get last 10 burns
     const lastBurnings = burnHistory.slice(0, 10);
@@ -300,6 +260,37 @@ export default function BurnerHomePage() {
     }, [totalBzeBurned, nativeAsset, totalUsdValue]);
 
     const pendingBurns = useMemo(() => nextBurn?.coins || [], [nextBurn]);
+
+    // Calculate forever locked tokens with USD values
+    const lockedTokens = useMemo(() => {
+        const tokens = Array.from(lockBalance.entries()).map(([denom, balance]) => {
+            const asset = getAsset(denom);
+            const amount = uAmountToBigNumberAmount(balance.amount, asset?.decimals ?? 0)
+            const usdValue = totalUsdValue([{ denom, amount: amount }]);
+
+            return {
+                denom,
+                balance: amount,
+                asset,
+                usdValue,
+                ticker: asset?.ticker || denom,
+                name: asset?.name || denom,
+                logo: asset?.logo || "/images/token.svg",
+            };
+        });
+
+        // Sort by USD value (highest first), then by balance
+        return tokens.sort((a, b) => {
+            if (b.usdValue.gt(a.usdValue)) return 1;
+            if (b.usdValue.lt(a.usdValue)) return -1;
+            return b.balance.comparedTo(a.balance) ?? 0;
+        });
+    }, [lockBalance, getAsset, totalUsdValue]);
+
+    // Calculate total USD value of locked tokens
+    const totalLockedUsdValue = useMemo(() => {
+        return lockedTokens.reduce((total, token) => total.plus(token.usdValue), BigNumber(0));
+    }, [lockedTokens]);
 
     const handleCoinClick = (denom: string) => {
         router.push(`/coin?coin=${encodeURIComponent(denom)}`);
@@ -345,7 +336,7 @@ export default function BurnerHomePage() {
                             🔥 The Burning Pot 🔥
                         </Text>
                         <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted" fontWeight="semibold" mb="4">
-                            Toss your tokens into the fire and watch them vanish!
+                            Toss your coins into the fire and watch them vanish!
                         </Text>
                         <Button
                             size={{ base: "lg", md: "xl" }}
@@ -363,7 +354,7 @@ export default function BurnerHomePage() {
                             }}
                             transition="all 0.3s"
                         >
-                            🔥 Burn Tokens Now!
+                            🔥 Burn Coins Now!
                         </Button>
                     </Box>
 
@@ -378,8 +369,6 @@ export default function BurnerHomePage() {
                             gradientVia: "orange.900",
                             gradientTo: "red.950",
                         }}
-                        borderWidth="4px"
-                        borderColor="orange.400"
                         borderRadius="3xl"
                         shadow="2xl"
                     >
@@ -390,7 +379,7 @@ export default function BurnerHomePage() {
                                         🍲 Next Pot Cooking In 🍲
                                     </Text>
                                     <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                                        Get ready... tokens are about to sizzle!
+                                        Get ready... coins are about to sizzle!
                                     </Text>
                                 </VStack>
                                 {isLoadingNextBurn ? (
@@ -422,7 +411,7 @@ export default function BurnerHomePage() {
                                     🎯 Ready to Burn
                                 </Text>
                                 <Badge colorPalette="orange" size="lg" variant="solid" borderRadius="full">
-                                    {pendingBurns.length} tokens
+                                    {pendingBurns.length} coins
                                 </Badge>
                             </HStack>
                             <Grid
@@ -455,15 +444,13 @@ export default function BurnerHomePage() {
                             gradientFrom: "orange.950",
                             gradientTo: "orange.900",
                         }}
-                        borderWidth="2px"
-                        borderColor="orange.300"
                         borderRadius="2xl"
                         shadow="md"
                     >
                         <Card.Body>
                             <VStack gap="2" align="center" py="6">
                                 <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
-                                    💰 Total {nativeAsset?.ticker || 'BZE'} Incinerated
+                                    🔥 Total {nativeAsset?.ticker || 'BZE'} Incinerated
                                 </Text>
                                 {isLoadingHistory ? (
                                     <Text fontSize="md" color="fg.muted">
@@ -488,6 +475,192 @@ export default function BurnerHomePage() {
                         </Card.Body>
                     </Card.Root>
 
+                    {/* Forever Locked Tokens Section */}
+                    {lockedTokens.length > 0 && (
+                        <Box>
+                            <HStack justify="space-between" align="center" mb="5">
+                                <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="black">
+                                    🔒 Forever Locked
+                                </Text>
+                                <Badge colorPalette="orange" size="lg" variant="solid" borderRadius="full">
+                                    {lockedTokens.length} {lockedTokens.length === 1 ? 'coin' : 'coins'}
+                                </Badge>
+                            </HStack>
+
+                            {/* Total locked value card */}
+                            {totalLockedUsdValue.gt(0) && (
+                                <Card.Root
+                                    bgGradient="to-br"
+                                    gradientFrom="orange.50"
+                                    gradientTo="orange.100"
+                                    _dark={{
+                                        gradientFrom: "orange.950",
+                                        gradientTo: "orange.900",
+                                    }}
+                                    borderRadius="2xl"
+                                    shadow="lg"
+                                    transition="all 0.3s ease-in-out"
+                                    borderWidth="1px"
+                                    borderColor="orange.200"
+                                    mb="5"
+                                >
+                                    <Card.Body>
+                                        <VStack gap="2" align="center" py="6">
+                                            <Text fontSize={{ base: "sm", md: "md" }} fontWeight="semibold" color="orange.600" _dark={{ color: "orange.400" }} textTransform="uppercase">
+                                                🔒 Total Value Locked Forever
+                                            </Text>
+                                            <VStack gap="1" align="center">
+                                                <HighlightText fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="orange.500" highlightColor="orange.500" highlightIntensity="evident">
+                                                    ${prettyAmount(totalLockedUsdValue)}
+                                                </HighlightText>
+                                            </VStack>
+                                            <Badge colorPalette="orange" variant="subtle" size="md" borderRadius="full">
+                                                Never Coming Back
+                                            </Badge>
+                                        </VStack>
+                                    </Card.Body>
+                                </Card.Root>
+                            )}
+
+                            {/* Locked tokens table */}
+                            <Box
+                                borderRadius="2xl"
+                                overflow="hidden"
+                                bg="bg.panel"
+                                shadow="lg"
+                            >
+                                {/* Desktop Table View */}
+                                <Box display={{ base: "none", md: "block" }} overflowX="auto">
+                                    <Table.Root size="md" variant="outline">
+                                        <Table.Header>
+                                            <Table.Row bg="orange.100" _dark={{ bg: "orange.900" }}>
+                                                <Table.ColumnHeader fontWeight="black">Coin</Table.ColumnHeader>
+                                                <Table.ColumnHeader fontWeight="black">Name</Table.ColumnHeader>
+                                                <Table.ColumnHeader fontWeight="black">Amount Locked</Table.ColumnHeader>
+                                                <Table.ColumnHeader fontWeight="black">USD Value</Table.ColumnHeader>
+                                            </Table.Row>
+                                        </Table.Header>
+                                        <Table.Body>
+                                            {lockedTokens.map((token, idx) => {
+                                                const asset = getAsset(token.denom);
+                                                const isLP = isLpDenom(token.denom);
+                                                const formattedAmount = prettyAmount(token.balance);
+                                                const formattedUsdValue = prettyAmount(token.usdValue);
+
+                                                return (
+                                                    <Table.Row
+                                                        key={idx}
+                                                        cursor="pointer"
+                                                        onClick={() => handleCoinClick(token.denom)}
+                                                        _hover={{
+                                                            bg: "orange.50",
+                                                            _dark: { bg: "orange.950" }
+                                                        }}
+                                                        transition="all 0.2s"
+                                                    >
+                                                        <Table.Cell>
+                                                            <HStack gap="3">
+                                                                <Box
+                                                                    p="1"
+                                                                    borderRadius="full"
+                                                                    width={isLP ? "52px" : "auto"}
+                                                                    display="flex"
+                                                                    justifyContent="center"
+                                                                    alignItems="center"
+                                                                >
+                                                                    {asset && <AssetLogo asset={asset} size="32px" />}
+                                                                </Box>
+                                                                <Text fontWeight="bold" fontSize="md">{token.ticker}</Text>
+                                                            </HStack>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Text fontSize="md" color="fg.muted" fontWeight="medium">
+                                                                {token.name}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Text fontWeight="black" fontSize="md" color="orange.500">
+                                                                {formattedAmount} {token.ticker}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            {token.usdValue.gt(0) && (
+                                                                <Text fontSize="md" color="fg.muted" fontWeight="medium">
+                                                                    ≈ ${formattedUsdValue}
+                                                                </Text>
+                                                            )}
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                );
+                                            })}
+                                        </Table.Body>
+                                    </Table.Root>
+                                </Box>
+
+                                {/* Mobile Card View */}
+                                <Box display={{ base: "block", md: "none" }}>
+                                    <VStack gap="0" align="stretch">
+                                        {lockedTokens.map((token, idx) => {
+                                            const asset = getAsset(token.denom);
+                                            const isLP = isLpDenom(token.denom);
+                                            const formattedAmount = prettyAmount(token.balance);
+                                            const formattedUsdValue = prettyAmount(token.usdValue);
+
+                                            return (
+                                                <Box
+                                                    key={idx}
+                                                    p="4"
+                                                    cursor="pointer"
+                                                    onClick={() => handleCoinClick(token.denom)}
+                                                    borderBottomWidth={idx < lockedTokens.length - 1 ? "2px" : "0"}
+                                                    borderColor="purple.200"
+                                                    _dark={{ borderColor: "purple.800" }}
+                                                    _hover={{
+                                                        bg: "purple.50",
+                                                        _dark: { bg: "purple.950" }
+                                                    }}
+                                                >
+                                                    <HStack justify="space-between" mb="2">
+                                                        <HStack gap="3">
+                                                            <Box
+                                                                p="1"
+                                                                borderRadius="full"
+                                                                width={isLP ? "56px" : "auto"}
+                                                                display="flex"
+                                                                justifyContent="center"
+                                                                alignItems="center"
+                                                            >
+                                                                {asset && <AssetLogo asset={asset} size="40px" />}
+                                                            </Box>
+                                                            <VStack gap="0" align="start">
+                                                                <Text fontWeight="bold" fontSize="md">
+                                                                    {token.ticker}
+                                                                </Text>
+                                                                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
+                                                                    {token.name}
+                                                                </Text>
+                                                            </VStack>
+                                                        </HStack>
+                                                        <VStack gap="0" align="end">
+                                                            <Text fontWeight="black" color="purple.500" fontSize="md">
+                                                                {formattedAmount}
+                                                            </Text>
+                                                            {token.usdValue.gt(0) && (
+                                                                <Text fontSize="xs" color="fg.muted">
+                                                                    ≈ ${formattedUsdValue}
+                                                                </Text>
+                                                            )}
+                                                        </VStack>
+                                                    </HStack>
+                                                </Box>
+                                            );
+                                        })}
+                                    </VStack>
+                                </Box>
+                            </Box>
+                        </Box>
+                    )}
+
                     <Separator borderColor="orange.200" _dark={{ borderColor: "orange.800" }} />
 
                     {/* Last 10 Burnings with playful header */}
@@ -502,9 +675,6 @@ export default function BurnerHomePage() {
                         </HStack>
                         <Box
                             borderRadius="2xl"
-                            borderWidth="3px"
-                            borderColor="orange.300"
-                            _dark={{ borderColor: "orange.700" }}
                             overflow="hidden"
                             bg="bg.panel"
                             shadow="lg"
@@ -514,7 +684,7 @@ export default function BurnerHomePage() {
                                 <Table.Root size="md" variant="outline">
                                     <Table.Header>
                                         <Table.Row bg="orange.100" _dark={{ bg: "orange.900" }}>
-                                            <Table.ColumnHeader fontWeight="black">Token</Table.ColumnHeader>
+                                            <Table.ColumnHeader fontWeight="black">Coin</Table.ColumnHeader>
                                             <Table.ColumnHeader fontWeight="black">Name</Table.ColumnHeader>
                                             <Table.ColumnHeader fontWeight="black">Amount Burned</Table.ColumnHeader>
                                             <Table.ColumnHeader fontWeight="black">Block Height</Table.ColumnHeader>
@@ -538,7 +708,7 @@ export default function BurnerHomePage() {
                                                             No Burns Yet
                                                         </Text>
                                                         <Text fontSize="sm" color="fg.muted">
-                                                            Be the first to burn some tokens!
+                                                            Be the first to burn some coins!
                                                         </Text>
                                                     </VStack>
                                                 </Table.Cell>
@@ -548,23 +718,9 @@ export default function BurnerHomePage() {
                                                 const asset = getAsset(burn.denom);
                                                 const ticker = asset?.ticker || burn.denom;
                                                 const name = asset?.name || burn.denom;
-                                                const logo = asset?.logo || "/images/token.svg";
                                                 const isLP = isLpDenom(burn.denom);
                                                 const formattedAmount = prettyAmount(burn.amount);
                                                 const formattedUsdValue = prettyAmount(burn.usdValue);
-
-                                                let baseAsset, quoteAsset;
-                                                if (isLP) {
-                                                    const pool = getPoolByLpDenom(burn.denom);
-                                                    if (pool) {
-                                                        const base = getAsset(pool.base);
-                                                        const quote = getAsset(pool.quote);
-                                                        if (base && quote) {
-                                                            baseAsset = base;
-                                                            quoteAsset = quote;
-                                                        }
-                                                    }
-                                                }
 
                                                 return (
                                                     <Table.Row
@@ -581,29 +737,13 @@ export default function BurnerHomePage() {
                                                             <HStack gap="3">
                                                                 <Box
                                                                     p="1"
-                                                                    bg="orange.50"
-                                                                    _dark={{ bg: "orange.950" }}
                                                                     borderRadius="full"
                                                                     width={isLP ? "52px" : "auto"}
                                                                     display="flex"
                                                                     justifyContent="center"
                                                                     alignItems="center"
                                                                 >
-                                                                    {isLP && baseAsset && quoteAsset ? (
-                                                                        <LPTokenLogo
-                                                                            baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                            quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                            baseAssetSymbol={baseAsset.ticker}
-                                                                            quoteAssetSymbol={quoteAsset.ticker}
-                                                                            size="32px"
-                                                                        />
-                                                                    ) : (
-                                                                        <TokenLogo
-                                                                            src={logo}
-                                                                            symbol={ticker}
-                                                                            size="32px"
-                                                                        />
-                                                                    )}
+                                                                    {asset && <AssetLogo asset={asset} size="32px" />}
                                                                 </Box>
                                                                 <Text fontWeight="bold" fontSize="md">{ticker}</Text>
                                                             </HStack>
@@ -658,7 +798,7 @@ export default function BurnerHomePage() {
                                             No Burns Yet
                                         </Text>
                                         <Text fontSize="sm" color="fg.muted">
-                                            Be the first to burn some tokens!
+                                            Be the first to burn some coins!
                                         </Text>
                                     </VStack>
                                 ) : (
@@ -667,23 +807,9 @@ export default function BurnerHomePage() {
                                             const asset = getAsset(burn.denom);
                                             const ticker = asset?.ticker || burn.denom;
                                             const name = asset?.name || burn.denom;
-                                            const logo = asset?.logo || "/images/token.svg";
                                             const isLP = isLpDenom(burn.denom);
                                             const formattedAmount = prettyAmount(burn.amount);
                                             const formattedUsdValue = prettyAmount(burn.usdValue);
-
-                                            let baseAsset, quoteAsset;
-                                            if (isLP) {
-                                                const pool = getPoolByLpDenom(burn.denom);
-                                                if (pool) {
-                                                    const base = getAsset(pool.base);
-                                                    const quote = getAsset(pool.quote);
-                                                    if (base && quote) {
-                                                        baseAsset = base;
-                                                        quoteAsset = quote;
-                                                    }
-                                                }
-                                            }
 
                                             return (
                                                 <Box
@@ -703,29 +829,13 @@ export default function BurnerHomePage() {
                                                         <HStack gap="3">
                                                             <Box
                                                                 p="1"
-                                                                bg="orange.50"
-                                                                _dark={{ bg: "orange.950" }}
                                                                 borderRadius="full"
                                                                 width={isLP ? "56px" : "auto"}
                                                                 display="flex"
                                                                 justifyContent="center"
                                                                 alignItems="center"
                                                             >
-                                                                {isLP && baseAsset && quoteAsset ? (
-                                                                    <LPTokenLogo
-                                                                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                        baseAssetSymbol={baseAsset.ticker}
-                                                                        quoteAssetSymbol={quoteAsset.ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                ) : (
-                                                                    <TokenLogo
-                                                                        src={logo}
-                                                                        symbol={ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                )}
+                                                                {asset && <AssetLogo asset={asset} size="40px"/> }
                                                             </Box>
                                                             <VStack gap="0" align="start">
                                                                 <Text fontWeight="bold" fontSize="md">

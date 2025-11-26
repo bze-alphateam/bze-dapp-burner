@@ -144,8 +144,6 @@ export const RaffleModal = ({
                     <Dialog.Content
                         maxW={{ base: "90vw", md: "500px" }}
                         borderRadius="2xl"
-                        borderWidth="3px"
-                        borderColor="orange.400"
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
@@ -166,8 +164,6 @@ export const RaffleModal = ({
                                         gradientTo: "orange.900/30",
                                     }}
                                     borderRadius="xl"
-                                    borderWidth="2px"
-                                    borderColor="orange.400"
                                     textAlign="center"
                                 >
                                     <VStack gap="2">
@@ -190,11 +186,8 @@ export const RaffleModal = ({
                                         bg="orange.50"
                                         _dark={{
                                             bg: "gray.800",
-                                            borderColor: "orange.500"
                                         }}
                                         borderRadius="lg"
-                                        borderWidth="1px"
-                                        borderColor="orange.300"
                                     >
                                         <HStack justify="space-between">
                                             <Text fontSize="sm" fontWeight="medium">
@@ -231,10 +224,8 @@ export const RaffleModal = ({
                                 <Box
                                     p="3"
                                     bg="orange.50"
-                                    _dark={{ bg: "gray.800", borderColor: "orange.500" }}
+                                    _dark={{ bg: "gray.800" }}
                                     borderRadius="lg"
-                                    borderWidth="1px"
-                                    borderColor="orange.300"
                                 >
                                     <HStack justify="space-between">
                                         <Text fontSize="sm" fontWeight="medium">
@@ -250,10 +241,8 @@ export const RaffleModal = ({
                                 <Box
                                     p="3"
                                     bg="yellow.50"
-                                    _dark={{ bg: "gray.800", borderColor: "yellow.500" }}
+                                    _dark={{ bg: "gray.800" }}
                                     borderRadius="lg"
-                                    borderWidth="1px"
-                                    borderColor="yellow.300"
                                 >
                                     <HStack gap="2">
                                         <Text fontSize="lg">⚠️</Text>

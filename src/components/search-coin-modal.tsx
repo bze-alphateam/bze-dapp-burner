@@ -14,10 +14,8 @@ import { useState, useMemo } from "react";
 import { LuSearch } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useAssets } from "@/hooks/useAssets";
-import { useLiquidityPools } from "@/hooks/useLiquidityPools";
-import { TokenLogo } from "@/components/ui/token_logo";
-import { LPTokenLogo } from "@/components/ui/lp_token_logo";
-import { isLpDenom, truncateDenom } from "@/utils/denom";
+import { truncateDenom } from "@/utils/denom";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface SearchCoinModalProps {
     isOpen: boolean;
@@ -28,8 +26,7 @@ interface SearchCoinModalProps {
 export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinModalProps) => {
     const [searchQuery, setSearchQuery] = useState("");
     const router = useRouter();
-    const { assets, isLoading, getAsset } = useAssets();
-    const { getPoolByLpDenom } = useLiquidityPools();
+    const { assets, isLoading } = useAssets();
 
     // Filter and sort coins based on search query
     const filteredCoins = useMemo(() => {
@@ -79,8 +76,6 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                     <Dialog.Content
                         maxW={{ base: "90vw", md: "500px" }}
                         borderRadius="2xl"
-                        borderWidth="3px"
-                        borderColor="orange.400"
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
@@ -115,8 +110,6 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                                     maxH="400px"
                                     overflowY="auto"
                                     borderRadius="lg"
-                                    borderWidth="1px"
-                                    borderColor="border"
                                 >
                                     {isLoading ? (
                                         <Box p="8" textAlign="center">
@@ -127,17 +120,6 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                                     ) : filteredCoins.length > 0 ? (
                                         <VStack gap="0" align="stretch">
                                             {filteredCoins.map((coin, idx) => {
-                                                const isLP = isLpDenom(coin.denom);
-                                                let baseAsset, quoteAsset;
-
-                                                if (isLP) {
-                                                    const pool = getPoolByLpDenom(coin.denom);
-                                                    if (pool) {
-                                                        baseAsset = getAsset(pool.base);
-                                                        quoteAsset = getAsset(pool.quote);
-                                                    }
-                                                }
-
                                                 return (
                                                     <Box
                                                         key={coin.denom}
@@ -155,25 +137,9 @@ export const SearchCoinModal = ({ isOpen, onClose, onCoinSelect }: SearchCoinMod
                                                         <HStack gap="3">
                                                             <Box
                                                                 p="1"
-                                                                bg="orange.50"
-                                                                _dark={{ bg: "orange.950" }}
                                                                 borderRadius="full"
                                                             >
-                                                                {isLP && baseAsset && quoteAsset ? (
-                                                                    <LPTokenLogo
-                                                                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                                                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                                                        baseAssetSymbol={baseAsset.ticker}
-                                                                        quoteAssetSymbol={quoteAsset.ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                ) : (
-                                                                    <TokenLogo
-                                                                        src={coin.logo}
-                                                                        symbol={coin.ticker}
-                                                                        size="40px"
-                                                                    />
-                                                                )}
+                                                                <AssetLogo asset={coin} size="40px" />
                                                             </Box>
                                                             <VStack gap="0" align="start" flex="1">
                                                                 <HStack gap="2">

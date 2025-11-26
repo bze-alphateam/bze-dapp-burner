@@ -16,12 +16,8 @@ import {
 import {useState, useEffect, useMemo, useCallback} from "react";
 import {useAsset, useAssets} from "@/hooks/useAssets";
 import { useBalances, useBalance } from "@/hooks/useBalances";
-import { TokenLogo } from "@/components/ui/token_logo";
-import { LPTokenLogo } from "@/components/ui/lp_token_logo";
-import { useLiquidityPool } from "@/hooks/useLiquidityPools";
 import {amountToUAmount, prettyAmount, toBigNumber, uAmountToAmount, uAmountToBigNumberAmount} from "@/utils/amount";
 import { isLpDenom } from "@/utils/denom";
-import { poolIdFromPoolDenom } from "@/utils/liquidity_pool";
 import BigNumber from "bignumber.js";
 import {Asset} from "@/types/asset";
 import {useChain} from "@interchain-kit/react";
@@ -30,6 +26,7 @@ import {useToast} from "@/hooks/useToast";
 import {bze} from '@bze/bzejs'
 import {useBZETx} from "@/hooks/useTx";
 import {sanitizeNumberInput} from "@/utils/number";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface BurnModalProps {
     isOpen: boolean;
@@ -39,11 +36,7 @@ interface BurnModalProps {
 
 // Component to render select item with logo
 const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) => {
-    const isLP = isLpDenom(asset.denom);
-    const poolId = isLP ? poolIdFromPoolDenom(asset.denom) : '';
-    const { pool } = useLiquidityPool(poolId);
-    const { asset: baseAsset } = useAsset(pool?.base || '');
-    const { asset: quoteAsset } = useAsset(pool?.quote || '');
+    const isLP = useMemo(() => isLpDenom(asset.denom), [asset]);
 
     return (
         <HStack gap="2">
@@ -53,21 +46,7 @@ const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) =>
                 alignItems="center"
                 width={isLP ? "28px" : "auto"}
             >
-                {isLP && baseAsset && quoteAsset ? (
-                    <LPTokenLogo
-                        baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                        quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                        baseAssetSymbol={baseAsset.ticker}
-                        quoteAssetSymbol={quoteAsset.ticker}
-                        size="20px"
-                    />
-                ) : (
-                    <TokenLogo
-                        src={asset.logo || "/images/token.svg"}
-                        symbol={asset.ticker}
-                        size="20px"
-                    />
-                )}
+                <AssetLogo asset={asset} size="28px" />
             </Box>
             <Text>{label}</Text>
         </HStack>
@@ -75,18 +54,14 @@ const SelectItemContent = ({ asset, label }: { asset: Asset; label: string }) =>
 };
 
 // Component to display token info with LP support
-const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
+const TokenInfoBox = ({ denom, name, ticker, balance }: {
     denom: string;
     name: string;
     ticker: string;
-    logo: string;
     balance: string;
 }) => {
+    const {asset} = useAsset(denom)
     const isLP = isLpDenom(denom);
-    const poolId = isLP ? poolIdFromPoolDenom(denom) : '';
-    const { pool } = useLiquidityPool(poolId);
-    const { asset: baseAsset } = useAsset(pool?.base || '');
-    const { asset: quoteAsset } = useAsset(pool?.quote || '');
 
     return (
         <VStack gap="3" align="stretch">
@@ -95,8 +70,6 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                 p="4"
                 bg="bg.muted"
                 borderRadius="lg"
-                borderWidth="1px"
-                borderColor="border"
             >
                 <HStack gap="3">
                     <Box
@@ -105,23 +78,9 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                         justifyContent="center"
                         alignItems="center"
                     >
-                        {isLP && baseAsset && quoteAsset ? (
-                            <LPTokenLogo
-                                baseAssetLogo={baseAsset.logo || "/images/token.svg"}
-                                quoteAssetLogo={quoteAsset.logo || "/images/token.svg"}
-                                baseAssetSymbol={baseAsset.ticker}
-                                quoteAssetSymbol={quoteAsset.ticker}
-                                size="48px"
-                            />
-                        ) : (
-                            <TokenLogo
-                                src={logo || "/images/token.svg"}
-                                symbol={ticker}
-                                size="48px"
-                            />
-                        )}
+                        {asset && <AssetLogo asset={asset} size="48px" /> }
                     </Box>
-                    <VStack gap="0" align="start" flex="1">
+                    <VStack gap="0" align="start" flex="1" ml={3}>
                         <Text fontSize="lg" fontWeight="bold">{name}</Text>
                         <Text fontSize="sm" color="fg.muted" fontWeight="medium">
                             {ticker}
@@ -136,11 +95,8 @@ const TokenInfoBox = ({ denom, name, ticker, logo, balance }: {
                 bg="orange.50"
                 _dark={{
                     bg: "gray.800",
-                    borderColor: "orange.500"
                 }}
                 borderRadius="lg"
-                borderWidth="1px"
-                borderColor="orange.300"
             >
                 <HStack justify="space-between">
                     <Text fontSize="sm" fontWeight="medium">
@@ -163,16 +119,11 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
 
     // Get assets and balances
     const { getAsset, denomDecimals } = useAssets();
-    const { getAssetsBalances } = useBalances();
+    const { assetsBalances: assetsWithBalances } = useBalances();
     const { balance } = useBalance(selectedCoin);
     const { address } = useChain(getChainName());
     const { toast } = useToast()
     const { tx } = useBZETx()
-
-    // Get assets with balances
-    const assetsWithBalances = useMemo(() => {
-        return getAssetsBalances();
-    }, [getAssetsBalances]);
 
     // Reset form when modal opens
     useEffect(() => {
@@ -281,8 +232,6 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                     <Dialog.Content
                         maxW={{ base: "90vw", md: "500px" }}
                         borderRadius="2xl"
-                        borderWidth="3px"
-                        borderColor="orange.400"
                     >
                         <Dialog.Header>
                             <Dialog.Title fontSize="xl" fontWeight="black">
@@ -301,11 +250,8 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                     bg="red.50"
                                     _dark={{
                                         bg: "gray.800",
-                                        borderColor: "orange.500"
                                     }}
                                     borderRadius="xl"
-                                    borderWidth="2px"
-                                    borderColor="red.300"
                                 >
                                     <VStack gap="2" align="center">
                                         <Text fontSize="3xl">⚠️</Text>
@@ -357,7 +303,6 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                         denom={selectedAsset.denom}
                                         name={selectedAsset.name}
                                         ticker={selectedAsset.ticker}
-                                        logo={selectedAsset.logo}
                                         balance={prettyBalance}
                                     />
                                 )}
@@ -369,11 +314,8 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                         bg="orange.50"
                                         _dark={{
                                             bg: "gray.800",
-                                            borderColor: "orange.500"
                                         }}
                                         borderRadius="lg"
-                                        borderWidth="1px"
-                                        borderColor="orange.300"
                                     >
                                         <HStack justify="space-between">
                                             <Text fontSize="sm" fontWeight="medium">
@@ -426,9 +368,6 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                         p="4"
                                         bg="bg.muted"
                                         borderRadius="lg"
-                                        borderWidth="2px"
-                                        borderColor="orange.200"
-                                        _dark={{ borderColor: "orange.800" }}
                                     >
                                         <VStack gap="2" align="stretch">
                                             <Text fontSize="sm" fontWeight="bold" textAlign="center">

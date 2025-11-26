@@ -4,7 +4,8 @@ import {useChain} from "@interchain-kit/react";
 import {getChainName} from "@/constants/chain";
 import {blockchainEventManager} from "@/service/blockchain_event_manager";
 import {
-    CURRENT_WALLET_BALANCE_EVENT,
+    CURRENT_WALLET_BALANCE_EVENT, EPOCH_START_EVENT,
+    LOCK_CHANGED_EVENT,
     NEXT_BURN_CHANGED_EVENT,
     ORDER_BOOK_CHANGED_EVENT,
     ORDER_EXECUTED_EVENT,
@@ -15,7 +16,7 @@ import {
 import {parseCoins} from "@cosmjs/amino";
 import {coins} from "@cosmjs/stargate";
 import {getChainNativeAssetDenom} from "@/constants/assets";
-import {getBurnerModuleAddress, getRaffleModuleAddress} from "@/query/module";
+import {getBurnerModuleAddress, getHardcodedLockAddress, getRaffleModuleAddress} from "@/query/module";
 
 const BLOCK_SUBSCRIPTION_ID = 1;
 const TX_RECIPIENT_SUBSCRIPTION_ID = 2;
@@ -24,6 +25,8 @@ const BURNER_RECIPIENT_SUBSCRIPTION_ID = 4;
 const BURNER_SENDER_SUBSCRIPTION_ID = 5;
 const RAFFLE_RECIPIENT_SUBSCRIPTION_ID = 6;
 const RAFFLE_SENDER_SUBSCRIPTION_ID = 7;
+const LOCK_RECIPIENT_SUBSCRIPTION_ID = 8;
+const LOCK_SENDER_SUBSCRIPTION_ID = 9;
 
 const buildSubscribePayload = (id: number, query: string) => {
     return {
@@ -72,6 +75,10 @@ const isCoinbaseEvent = (event: TendermintEvent) => {
     return event.type.includes('coinbase');
 };
 
+const isEpochStartEvent = (event: TendermintEvent) => {
+    return event.type.includes('bze.epochs.EpochStartEvent');
+};
+
 const isBurnEvent = (event: TendermintEvent) => {
     return event.type.includes('burn');
 };
@@ -95,9 +102,11 @@ export function useBlockchainListener() {
     const subscribedToTxRef = useRef(false);
     const subscribedToBurnerRef = useRef(false);
     const subscribedToRaffleRef = useRef(false);
+    const subscribedToLockRef = useRef(false);
     const previousAddressRef = useRef<string | undefined>(undefined);
     const burnerAddressRef = useRef<string>('');
     const raffleAddressRef = useRef<string>('');
+    const lockAddressRef = useRef<string>('');
     const [isConnected, setIsConnected] = useState(false);
 
     const maxReconnectAttempts = 10;
@@ -121,6 +130,10 @@ export function useBlockchainListener() {
                     blockchainEventManager.emit(RAFFLE_CHANGED_EVENT)
                 }
 
+                if (lockAddressRef.current !== '' && eventHasAttributeWithValue(event, lockAddressRef.current)) {
+                    blockchainEventManager.emit(LOCK_CHANGED_EVENT)
+                }
+
                 continue
             }
 
@@ -134,6 +147,11 @@ export function useBlockchainListener() {
                 continue;
             }
 
+            if (isEpochStartEvent(event)) {
+                blockchainEventManager.emit(EPOCH_START_EVENT)
+                continue;
+            }
+
             if (isCoinbaseEvent(event)) {
                 //every block a new mint event is emitted for newly minted coins from the native asset. These coins are
                 //the rewards for validators and delegators (inflation).
@@ -141,7 +159,6 @@ export function useBlockchainListener() {
                 const mintedAmount = getMintedAmount(event);
                 for (const coin of mintedAmount) {
                     if (coin.denom !== getChainNativeAssetDenom()) {
-                        console.log(`Minted ${coin.amount} ${coin.denom}`)
                         // if at least 1 coin was minted that is not the native asset, we should emit ONLY ONE
                         // supply changed event.
                         blockchainEventManager.emit(SUPPLY_CHANGED_EVENT)
@@ -271,6 +288,41 @@ export function useBlockchainListener() {
         subscribedToRaffleRef.current = false;
     }, []);
 
+    const subscribeLockEvents = useCallback((lockAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (subscribedToLockRef.current) return;
+        if (!lockAddress || lockAddress === '') return;
+
+        // Subscribe to lock recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${lockAddress}'`;
+        const recipientPayload = buildSubscribePayload(LOCK_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Subscribe to lock sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${lockAddress}'`;
+        const senderPayload = buildSubscribePayload(LOCK_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToLockRef.current = true;
+    }, []);
+
+    const unsubscribeLockEvents = useCallback((lockAddress: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (!subscribedToLockRef.current) return;
+
+        // Unsubscribe from lock recipient events
+        const recipientQuery = `tm.event='Tx' AND transfer.recipient='${lockAddress}'`;
+        const recipientPayload = buildUnsubscribePayload(LOCK_RECIPIENT_SUBSCRIPTION_ID, recipientQuery);
+        wsRef.current.send(JSON.stringify(recipientPayload));
+
+        // Unsubscribe from lock sender events
+        const senderQuery = `tm.event='Tx' AND transfer.sender='${lockAddress}'`;
+        const senderPayload = buildUnsubscribePayload(LOCK_SENDER_SUBSCRIPTION_ID, senderQuery);
+        wsRef.current.send(JSON.stringify(senderPayload));
+
+        subscribedToLockRef.current = false;
+    }, []);
+
     const reconnect = useCallback(() => {
         if (!shouldReconnectRef.current) return;
 
@@ -328,6 +380,11 @@ export function useBlockchainListener() {
                 subscribeRaffleEvents(raffleAddressRef.current);
             }
 
+            // Subscribe to lock events if lock address is available
+            if (lockAddressRef.current !== '') {
+                subscribeLockEvents(lockAddressRef.current);
+            }
+
             // Reset reconnect attempts on successful connection
             reconnectAttemptsRef.current = 0;
             setIsConnected(true); // Set connected
@@ -353,7 +410,6 @@ export function useBlockchainListener() {
 
             //tx events from Tx subscription
             if (data?.result?.data?.value?.TxResult?.result?.events) {
-                console.log("tx event from tx subscription", data)
                 onBlockEvent(data.result.data.value.TxResult.result.events)
             }
         };
@@ -377,7 +433,7 @@ export function useBlockchainListener() {
             // Close the connection to trigger reconnect via onclose
             wsRef.current?.close();
         };
-    }, [reconnect, address, subscribeTxEvents, subscribeBurnerEvents, subscribeRaffleEvents, onBlockEvent]);
+    }, [reconnect, address, subscribeTxEvents, subscribeBurnerEvents, subscribeRaffleEvents, subscribeLockEvents, onBlockEvent]);
 
     // Handle address changes
     useEffect(() => {
@@ -403,7 +459,7 @@ export function useBlockchainListener() {
     // Fetch burner address on mount
     useEffect(() => {
         const fetchBurnerAddress = async () => {
-            const burnerAddr = await getBurnerModuleAddress();
+            const burnerAddr = getBurnerModuleAddress();
             burnerAddressRef.current = burnerAddr;
 
             // If already connected, subscribe to burner events
@@ -421,7 +477,7 @@ export function useBlockchainListener() {
     // Fetch raffle address on mount
     useEffect(() => {
         const fetchRaffleAddress = async () => {
-            const raffleAddr = await getRaffleModuleAddress();
+            const raffleAddr = getRaffleModuleAddress();
             raffleAddressRef.current = raffleAddr;
 
             // If already connected, subscribe to raffle events
@@ -435,6 +491,24 @@ export function useBlockchainListener() {
             unsubscribeRaffleEvents(raffleAddressRef.current);
         }
     }, [subscribeRaffleEvents, unsubscribeRaffleEvents]);
+
+    // Fetch lock address on mount
+    useEffect(() => {
+        const fetchLockAddress = async () => {
+            const lockAddr = getHardcodedLockAddress();
+            lockAddressRef.current = lockAddr;
+
+            // If already connected, subscribe to lock events
+            if (wsRef.current?.readyState === WebSocket.OPEN && lockAddr !== '') {
+                subscribeLockEvents(lockAddr);
+            }
+        };
+
+        fetchLockAddress();
+        return () => {
+            unsubscribeLockEvents(lockAddressRef.current);
+        }
+    }, [subscribeLockEvents, unsubscribeLockEvents]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;

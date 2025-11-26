@@ -15,13 +15,13 @@ import { useMemo } from "react";
 import { RaffleInfo } from "@/components/raffle-info";
 import { useRaffles } from "@/hooks/useRaffles";
 import { useAsset } from "@/hooks/useAssets";
-import { TokenLogo } from "@/components/ui/token_logo";
 import { HighlightText } from "@/components/ui/highlight";
 import {uAmountToBigNumberAmount, prettyAmount, toBigNumber} from "@/utils/amount";
 import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
 import { RaffleSDKType } from "@bze/bzejs/bze/burner/raffle";
 import BigNumber from "bignumber.js";
 import {useEpochs} from "@/hooks/useEpochs";
+import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface RaffleCardProps {
     raffle: RaffleSDKType;
@@ -32,10 +32,9 @@ interface RaffleCardProps {
 function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
     const { asset } = useAsset(raffle.denom);
 
-    const ticker = asset?.ticker || raffle.denom;
-    const name = asset?.name || raffle.denom;
-    const logo = asset?.logo || "/images/token.svg";
-    const decimals = asset?.decimals || 6;
+    const ticker = useMemo(() => asset?.ticker || raffle.denom, [asset?.ticker, raffle.denom]);
+    const name = useMemo(() => asset?.name || raffle.denom, [asset?.name, raffle.denom]);
+    const decimals = useMemo(() => asset?.decimals || 6, [asset?.decimals]);
 
     const formattedPrize = useMemo(() => {
         const potAmount = uAmountToBigNumberAmount(raffle.pot, decimals);
@@ -79,10 +78,7 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
                 gradientFrom: "purple.950",
                 gradientVia: "pink.950",
                 gradientTo: "orange.950",
-                borderColor: "purple.500"
             }}
-            borderWidth="3px"
-            borderColor="purple.400"
             borderRadius="3xl"
             shadow="lg"
             cursor="pointer"
@@ -91,7 +87,6 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
             _hover={{
                 transform: "translateY(-4px) rotate(1deg)",
                 shadow: "2xl",
-                borderColor: "purple.500",
             }}
         >
             <Card.Body>
@@ -100,15 +95,9 @@ function RaffleCard({ raffle, currentEpoch, onClick }: RaffleCardProps) {
                     <HStack gap="3">
                         <Box
                             p="2"
-                            bg="white"
-                            _dark={{ bg: "gray.900" }}
                             borderRadius="full"
                         >
-                            <TokenLogo
-                                src={logo}
-                                symbol={ticker}
-                                size="40px"
-                            />
+                            {asset && <AssetLogo asset={asset} size="40px" /> }
                         </Box>
                         <VStack gap="0" align="start" flex="1">
                             <Text fontSize="lg" fontWeight="black" color="purple.600" _dark={{ color: "purple.300" }}>
@@ -231,10 +220,7 @@ export default function RafflesPage() {
                         _dark={{
                             gradientFrom: "blue.950",
                             gradientTo: "blue.900",
-                            borderColor: "blue.500"
                         }}
-                        borderWidth="3px"
-                        borderColor="blue.300"
                         borderRadius="3xl"
                         shadow="lg"
                     >
