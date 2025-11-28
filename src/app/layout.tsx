@@ -18,10 +18,24 @@ export default function RootLayout({children}: { children: React.ReactNode }) {
     return (
       <html className={inter.className} suppressHydrationWarning>
           <head>
-              <title>BZE App</title>
+              <title>🔥Burner | BeeZee Blockchain</title>
               <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <meta name="description" content="BZE app is a blockchain application built on top of BeeZee blockchain. The BZE coin or BeeZee coin empowers the network with rich features, a fast and secure blockchain with high performance."/>
+              <meta name="description" content="BZE is a community-driven network committed to reducing supply through regular token burns, often executed via governance proposals. Taxes from token creation, trading, and other on-chain activity are directed to the community pool or burn address. The Burner App also features burning raffles, where users can voluntarily contribute tokens for a chance to win a share of the burned amount — combining deflationary impact with gamified incentives."/>
               <link rel="icon" href="/images/logo_320px.png"/>
+
+              {/* Open Graph / Facebook */}
+              <meta property="og:type" content="website" />
+              <meta property="og:title" content="🔥Burner | BeeZee Blockchain" />
+              <meta property="og:description" content="BZE is a community-driven network committed to reducing supply through regular token burns. Features burning raffles where users can contribute tokens for a chance to win." />
+              <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL}/images/bee-burning-coins.png`} />
+              <meta property="og:url" content={process.env.NEXT_PUBLIC_SITE_URL} />
+              <meta property="og:site_name" content="BeeZee Burner" />
+
+              {/* Twitter */}
+              <meta name="twitter:card" content="summary_large_image" />
+              <meta name="twitter:title" content="🔥Burner | BeeZee Blockchain" />
+              <meta name="twitter:description" content="BZE is a community-driven network committed to reducing supply through regular token burns. Features burning raffles where users can contribute tokens for a chance to win." />
+              <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL}/images/bee-burning-coins.png`} />
           </head>
           <body>
             <Provider>
