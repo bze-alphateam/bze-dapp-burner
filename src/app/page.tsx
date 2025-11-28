@@ -27,6 +27,8 @@ import { HighlightText } from "@/components/ui/highlight";
 import { isLpDenom } from "@/utils/denom";
 import {AssetLogo} from "@/components/ui/asset_logo";
 
+const MAX_BURN_HISTORY_ITEMS = 30;
+
 // Countdown Timer Component with playful design
 const CountdownTimer = ({ targetDate }: { targetDate: Date }) => {
     const [timeLeft, setTimeLeft] = useState(0);
@@ -240,7 +242,7 @@ export default function BurnerHomePage() {
     const { lockBalance } = useAssetsContext();
 
     // Get last 10 burns
-    const lastBurnings = burnHistory.slice(0, 10);
+    const lastBurnings = burnHistory.slice(0, MAX_BURN_HISTORY_ITEMS);
 
     // Calculate total BZE burned
     const totalBzeBurned = useMemo(() => {
@@ -670,7 +672,7 @@ export default function BurnerHomePage() {
                                 📜 Burn History Book
                             </Text>
                             <Badge colorPalette="red" size="lg" variant="subtle" borderRadius="full">
-                                Last 10 Victims
+                                Last {MAX_BURN_HISTORY_ITEMS} Victims
                             </Badge>
                         </HStack>
                         <Box
