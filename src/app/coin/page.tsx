@@ -13,7 +13,7 @@ import {
     Grid,
 } from "@chakra-ui/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState, Suspense} from "react";
 import { useChain } from "@interchain-kit/react";
 import { getChainName } from "@/constants/chain";
 import { BurnModal } from "@/components/burn-modal";
@@ -36,7 +36,7 @@ import {AssetLogo} from "@/components/ui/asset_logo";
 
 const WINNERS_LIST_MAX_LEN = 20;
 
-export default function CoinDetailPage() {
+function CoinDetailContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const denom = searchParams.get('coin') || '';
@@ -939,5 +939,21 @@ export default function CoinDetailPage() {
                 />
             )}
         </Box>
+    );
+}
+
+export default function CoinDetailPage() {
+    return (
+        <Suspense fallback={
+            <Container py="10">
+                <VStack gap="4" align="center" py="20">
+                    <Text fontSize="xl" color="fg.muted">
+                        Loading...
+                    </Text>
+                </VStack>
+            </Container>
+        }>
+            <CoinDetailContent />
+        </Suspense>
     );
 }
