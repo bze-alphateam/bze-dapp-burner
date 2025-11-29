@@ -26,7 +26,7 @@ export function getHardcodedLockAddress(): string {
         return 'testbz1pc5zjcvhx3e8l305zjl72grytfa30r5m0urshr';
     }
 
-    return 'bze18hsqalgwlzqavrrkfnxmrjmygwyjy8senx5tgs';
+    return 'bze1pc5zjcvhx3e8l305zjl72grytfa30r5mdypmw4';
 }
 
 export function getBurnerModuleAddress(): string {
