@@ -1,4 +1,4 @@
-import { Link, Stack, type StackProps } from '@chakra-ui/react'
+import {Text, Box, Link, Stack, type StackProps, Menu, Portal} from '@chakra-ui/react'
 import NextLink from 'next/link'
 import {useNavigation} from "@/hooks/useNavigation";
 import { useState } from 'react';
@@ -16,6 +16,13 @@ const navItems = [
 ]
 
 const navSubitems: { [key: string]: string } = {}
+
+// Apps dropdown items
+const appsItems = [
+    { name: '🌐 Website', href: 'https://getbze.com', disabled: false },
+    { name: '🔄 DEX', href: 'https://dex.getbze.com', disabled: false },
+    { name: '🔧 Factory', href: '#', disabled: true },
+]
 
 export const NavbarLinks = ({ onLinkClick, ...props }: NavbarLinksProps) => {
     const {navigate, currentPathName} = useNavigation()
@@ -66,6 +73,109 @@ export const NavbarLinks = ({ onLinkClick, ...props }: NavbarLinksProps) => {
                         </Link>
                     )
                 })}
+
+                {/* Other Items - Mobile: Inline, Desktop: Dropdown */}
+
+                {/* Mobile: Show items inline */}
+                <Box hideFrom="md">
+                    <Text
+                        fontWeight="medium"
+                        color="fg.muted"
+                        fontSize="sm"
+                        mb="3"
+                    >
+                        Other
+                    </Text>
+                    <Stack direction="column" gap="4" pl="4">
+                        {appsItems.map((item) => (
+                            item.disabled ? (
+                                <Text
+                                    key={item.name}
+                                    fontWeight="medium"
+                                    color="fg.muted"
+                                    opacity={0.5}
+                                >
+                                    {item.name} <Text as="span" fontSize="xs">(coming soon)</Text>
+                                </Text>
+                            ) : (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    fontWeight="medium"
+                                    color="fg.muted"
+                                    textDecoration="none"
+                                    transition="color 0.2s"
+                                    onClick={onLinkClick}
+                                    _hover={{
+                                        color: 'colorPalette.fg',
+                                        textDecoration: 'none',
+                                    }}
+                                >
+                                    {item.name}
+                                </Link>
+                            )
+                        ))}
+                    </Stack>
+                </Box>
+
+                {/* Desktop: Show as dropdown menu */}
+                <Box hideBelow="md">
+                    <Menu.Root>
+                        <Menu.Trigger asChild>
+                            <Text
+                                as="button"
+                                fontWeight="medium"
+                                color="fg.muted"
+                                cursor="pointer"
+                                transition="color 0.2s"
+                                _hover={{
+                                    color: 'colorPalette.fg',
+                                }}
+                                _focus={{
+                                    outline: 'none',
+                                    boxShadow: 'none',
+                                }}
+                            >
+                                Other
+                            </Text>
+                        </Menu.Trigger>
+                        <Portal>
+                            <Menu.Positioner>
+                                <Menu.Content>
+                                    {appsItems.map((item) => (
+                                        <Menu.Item
+                                            key={item.name}
+                                            value={item.name}
+                                            disabled={item.disabled}
+                                            asChild={!item.disabled}
+                                        >
+                                            {item.disabled ? (
+                                                <Text>
+                                                    {item.name} <Text as="span" fontSize="xs" color="fg.muted">(coming soon)</Text>
+                                                </Text>
+                                            ) : (
+                                                <Link
+                                                    href={item.href}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    textDecoration="none"
+                                                    color="inherit"
+                                                    display="block"
+                                                    width="100%"
+                                                    onClick={onLinkClick}
+                                                >
+                                                    {item.name}
+                                                </Link>
+                                            )}
+                                        </Menu.Item>
+                                    ))}
+                                </Menu.Content>
+                            </Menu.Positioner>
+                        </Portal>
+                    </Menu.Root>
+                </Box>
             </Stack>
 
             {/* Search Coin Modal */}
