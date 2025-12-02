@@ -8,6 +8,7 @@ import {Toaster} from "@/components/ui/toaster";
 import {AssetsProvider} from "@/contexts/assets_context";
 import {BlockchainListenerWrapper} from "@/components/blockchain-listener-wrapper";
 import {getAppName} from "@/constants/settings";
+import {GoogleTagManager} from "@next/third-parties/google";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({children}: { children: React.ReactNode }) {
               <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL}/images/bee-burning-coins.png`} />
           </head>
           <body>
+            <GoogleTagManager gtmId="G-7DRJTECDTV"/>
             <Provider>
               <AssetsProvider>
                   <BlockchainListenerWrapper />
