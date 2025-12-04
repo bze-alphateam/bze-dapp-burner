@@ -18,11 +18,11 @@ const walletConnect = new WCWallet(
     {
         projectId: '7e8510ae772ef527bd711c9bc02f0cb7',
         metadata: {
-            name: "BeeZee DEX",
-            description: "DEX & More",
-            url: "https://app.getbze.com",
+            name: "BeeZee Burner",
+            description: "Coin melting pot & Burning Raffles",
+            url: "https://burner.getbze.com",
             icons: [
-                "https://app.getbze.com/images/logo_320px.png",
+                "https://burner.getbze.com/images/logo_320px.png",
             ],
         },
     }
