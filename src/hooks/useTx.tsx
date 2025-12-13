@@ -63,7 +63,7 @@ export const useIBCTx = (chainName?: string) => {
 }
 
 const useTx = (chainName: string, isCosmos: boolean, isIBC: boolean) => {
-    const {address} = useChain(chainName);
+    const {address, disconnect} = useChain(chainName);
     const {toast} = useToast();
     const {signingClient, isSigningClientReady, signingClientError} = useSigningClient({chainName: chainName, isCosmos: isCosmos, isIbc: isIBC});
     const [progressTrack, setProgressTrack] = useState("")
@@ -179,6 +179,11 @@ const useTx = (chainName: string, isCosmos: boolean, isIBC: boolean) => {
                 }
             } catch (e) {
                 console.error(e);
+                //@ts-expect-error - small chances for e to be undefined
+                if (e.message.includes("Failed to retrieve account from signer")) {
+                    disconnect()
+                }
+
                 // @ts-expect-error - small chances for e to be undefined
                 toast.error(TxStatus.Failed, prettyError(e?.message));
                 if (options?.onFailure) {
@@ -191,7 +196,7 @@ const useTx = (chainName: string, isCosmos: boolean, isIBC: boolean) => {
         setTimeout(() => {
             setProgressTrack("")
         }, options?.progressTrackerTimeout || 5000)
-    }, [address, canUseClient, getFee, toast, signingClient, chainName, defaultChainName]);
+    }, [address, canUseClient, getFee, toast, signingClient, chainName, defaultChainName, disconnect]);
 
     return {
         tx,
