@@ -13,8 +13,7 @@ import {
 import { useState, useMemo } from "react";
 import { LuSearch } from "react-icons/lu";
 import { useRouter } from "next/navigation";
-import { useAssets } from "@/hooks/useAssets";
-import { truncateDenom } from "@/utils/denom";
+import { useAssets, truncateDenom } from "@bze/bze-ui-kit";
 import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface SearchCoinModalProps {

@@ -15,23 +15,16 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import {useCallback, useEffect, useMemo, useState, Suspense} from "react";
 import { useChain } from "@interchain-kit/react";
-import { getChainName } from "@/constants/chain";
+import { getChainName, prettyAmount, uAmountToBigNumberAmount, toBigNumber, truncateDenom, isLpDenom, isIbcDenom, formatTimeRemainingFromEpochs, truncateAddress, useAssetsValue, useEpochs, HighlightText, useAssets } from "@bze/bze-ui-kit";
+import { useBurnerContext } from "@/hooks/useBurnerContext";
 import { BurnModal } from "@/components/burn-modal";
 import { RaffleModal } from "@/components/raffle-modal";
 import { RaffleInfoModal } from "@/components/raffle-info-modal";
 import { RaffleResultAnimation } from "@/components/raffle-result-animation";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
-import { useAssets, useAssetsContext } from "@/hooks/useAssets";
-import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useNextBurning } from "@/hooks/useNextBurning";
 import {useRaffle, useRaffleContributions} from "@/hooks/useRaffles";
 import BigNumber from "bignumber.js";
-import { prettyAmount, uAmountToBigNumberAmount, toBigNumber } from "@/utils/amount";
-import { HighlightText } from "@/components/ui/highlight";
-import {truncateDenom, isLpDenom, isIbcDenom} from "@/utils/denom";
-import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
-import { truncateAddress } from "@/utils/address";
-import {useEpochs} from "@/hooks/useEpochs";
 import {AssetLogo} from "@/components/ui/asset_logo";
 
 const WINNERS_LIST_MAX_LEN = 20;
@@ -51,7 +44,7 @@ function CoinDetailContent() {
     // Get asset from useAssets
     const { getAsset, denomDecimals, isLoading: isLoadingAssets } = useAssets();
     const { totalUsdValue } = useAssetsValue();
-    const { lockBalance } = useAssetsContext();
+    const { lockBalance } = useBurnerContext();
     const asset = useMemo(() => getAsset(denom), [getAsset, denom]);
     const {hourEpochInfo} = useEpochs()
 
@@ -77,7 +70,7 @@ function CoinDetailContent() {
     const nextCoinBurn = useMemo(() => {
         if (!nextBurn?.coins) return null;
 
-        const coin = nextBurn.coins.find(c => c.denom === denom);
+        const coin = nextBurn.coins.find((c: { denom: string; amount: string }) => c.denom === denom);
         if (!coin) return null;
 
         const decimals = denomDecimals(denom);
@@ -150,7 +143,7 @@ function CoinDetailContent() {
         const formattedTotalWon = prettyAmount(totalWon);
 
         // Format winners
-        const formattedWinners = winners.sort((a, b) => parseInt(b.index) - parseInt(a.index)).slice(0, WINNERS_LIST_MAX_LEN).map(w => ({
+        const formattedWinners = winners.sort((a: {index: string}, b: {index: string}) => parseInt(b.index) - parseInt(a.index)).slice(0, WINNERS_LIST_MAX_LEN).map((w: {winner: string; amount: string}) => ({
             fullAddress: w.winner,
             address: truncateAddress(w.winner),
             amount: prettyAmount(uAmountToBigNumberAmount(w.amount, decimals))
@@ -271,7 +264,7 @@ function CoinDetailContent() {
         let winnersCount = 0;
         let losersCount = 0;
 
-        results.forEach(result => {
+        results.forEach((result: {hasWon: boolean; amount: string}) => {
             if (result.hasWon) {
                 winnersCount++;
                 const decimals = asset.decimals || 6;
@@ -585,7 +578,7 @@ function CoinDetailContent() {
                                                         🎉 Last {WINNERS_LIST_MAX_LEN} Winners
                                                     </Text>
                                                     <VStack gap="2" align="stretch">
-                                                        {raffleData.winners.map((winner, idx) => {
+                                                        {raffleData.winners.map((winner: {fullAddress: string; address: string; amount: string}, idx: number) => {
                                                             const isCurrentUser = address && winner.fullAddress === address;
                                                             return (
                                                                 <HStack

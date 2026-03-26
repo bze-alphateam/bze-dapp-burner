@@ -16,15 +16,12 @@ import {
 } from "@chakra-ui/react";
 import {useState, useMemo, useEffect, useCallback} from "react";
 import { useRouter } from "next/navigation";
+import { useAssetsValue, prettyAmount, uAmountToBigNumberAmount, HighlightText, isLpDenom, useAssets, useAsset } from "@bze/bze-ui-kit";
+import { useBurnerContext } from "@/hooks/useBurnerContext";
 import { BurnModal } from "@/components/burn-modal";
 import { useBurningHistory } from "@/hooks/useBurningHistory";
-import { useAssets, useAsset, useAssetsContext } from "@/hooks/useAssets";
-import { useAssetsValue } from "@/hooks/useAssetsValue";
 import { useNextBurning } from "@/hooks/useNextBurning";
 import BigNumber from "bignumber.js";
-import {prettyAmount, uAmountToBigNumberAmount} from "@/utils/amount";
-import { HighlightText } from "@/components/ui/highlight";
-import { isLpDenom } from "@/utils/denom";
 import {AssetLogo} from "@/components/ui/asset_logo";
 
 const MAX_BURN_HISTORY_ITEMS = 30;
@@ -239,7 +236,7 @@ export default function BurnerHomePage() {
     const { getAsset, nativeAsset } = useAssets();
     const { totalUsdValue } = useAssetsValue();
     const { nextBurn, isLoading: isLoadingNextBurn } = useNextBurning();
-    const { lockBalance } = useAssetsContext();
+    const { lockBalance } = useBurnerContext();
 
     // Get last 10 burns
     const lastBurnings = burnHistory.slice(0, MAX_BURN_HISTORY_ITEMS);
@@ -424,7 +421,7 @@ export default function BurnerHomePage() {
                                 }}
                                 gap="5"
                             >
-                                {pendingBurns.map((coin, idx) => (
+                                {pendingBurns.map((coin: {denom: string; amount: string}, idx: number) => (
                                     <GridItem key={idx}>
                                         <PendingBurnBox
                                             denom={coin.denom}

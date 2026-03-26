@@ -14,18 +14,10 @@ import {
     Dialog,
 } from "@chakra-ui/react";
 import {useState, useEffect, useMemo, useCallback} from "react";
-import {useAsset, useAssets} from "@/hooks/useAssets";
-import { useBalances, useBalance } from "@/hooks/useBalances";
-import {amountToUAmount, prettyAmount, toBigNumber, uAmountToAmount, uAmountToBigNumberAmount} from "@/utils/amount";
-import { isLpDenom } from "@/utils/denom";
+import { useAsset, useAssets, useBalances, useBalance, amountToUAmount, prettyAmount, toBigNumber, uAmountToAmount, uAmountToBigNumberAmount, isLpDenom, Asset, getChainName, useToast, useBZETx, sanitizeNumberInput } from "@bze/bze-ui-kit";
 import BigNumber from "bignumber.js";
-import {Asset} from "@/types/asset";
 import {useChain} from "@interchain-kit/react";
-import {getChainName} from "@/constants/chain";
-import {useToast} from "@/hooks/useToast";
 import {bze} from '@bze/bzejs'
-import {useBZETx} from "@/hooks/useTx";
-import {sanitizeNumberInput} from "@/utils/number";
 import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface BurnModalProps {

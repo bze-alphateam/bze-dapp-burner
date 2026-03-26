@@ -4,12 +4,14 @@ import { Inter } from "next/font/google"
 
 import {Provider} from "@/components/ui/provider";
 import {TopNavBar} from "@/components/ui/navigation/navbar";
-import {Toaster} from "@/components/ui/toaster";
+import {Toaster, setStorageKeyVersion, setDefaultTxMemo, getAppName} from "@bze/bze-ui-kit";
 import {AssetsProvider} from "@/contexts/assets_context";
 import {BlockchainListenerWrapper} from "@/components/blockchain-listener-wrapper";
-import {getAppName} from "@/constants/settings";
 import {GoogleTagManager} from "@next/third-parties/google";
 import {SecurityAuditWarning} from "@/components/security-audit-warning";
+
+setStorageKeyVersion('2');
+setDefaultTxMemo('burner.getbze.com');
 
 const inter = Inter({
   subsets: ["latin"],

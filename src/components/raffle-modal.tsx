@@ -13,15 +13,9 @@ import {
 } from "@chakra-ui/react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useChain } from "@interchain-kit/react";
-import { getChainName } from "@/constants/chain";
-import { useToast } from "@/hooks/useToast";
+import { getChainName, useToast, useBZETx, useBalance, toBigNumber, uAmountToBigNumberAmount, sanitizeIntegerInput, useAsset } from "@bze/bze-ui-kit";
 import { bze } from '@bze/bzejs';
-import { useBZETx } from "@/hooks/useTx";
-import { useBalance } from "@/hooks/useBalances";
-import { useAsset } from "@/hooks/useAssets";
-import { toBigNumber, uAmountToBigNumberAmount } from "@/utils/amount";
 import BigNumber from "bignumber.js";
-import {sanitizeIntegerInput} from "@/utils/number";
 import {useRaffleContributions} from "@/hooks/useRaffles";
 
 interface RaffleModalProps {
