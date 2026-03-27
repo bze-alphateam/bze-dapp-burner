@@ -3,8 +3,7 @@ import NextLink from 'next/link'
 import {useNavigation} from "@/hooks/useNavigation";
 import { useState } from 'react';
 import { SearchCoinModal } from '@/components/search-coin-modal';
-import {LuGlobe, LuCoins, LuFactory, LuChartColumn} from 'react-icons/lu'
-import type { IconType } from 'react-icons'
+import {getEcosystemApps} from '@bze/bze-ui-kit'
 
 interface NavbarLinksProps extends StackProps {
     onLinkClick?: () => void
@@ -19,13 +18,8 @@ const navItems = [
 
 const navSubitems: { [key: string]: string } = {}
 
-// Apps dropdown items
-const appsItems: Array<{ name: string; href: string; disabled: boolean; icon: IconType }> = [
-    { name: 'Website', href: 'https://getbze.com', disabled: false, icon: LuGlobe },
-    { name: 'Staking', href: 'https://staking.getbze.com', disabled: false, icon: LuCoins },
-    { name: 'DEX', href: 'https://dex.getbze.com', disabled: false, icon: LuChartColumn },
-    { name: 'Factory', href: '#', disabled: true, icon: LuFactory },
-]
+// Apps dropdown items — sourced from bze-ui-kit, overridable via env vars
+const appsItems = getEcosystemApps()
 
 export const NavbarLinks = ({ onLinkClick, ...props }: NavbarLinksProps) => {
     const {navigate, currentPathName} = useNavigation()
