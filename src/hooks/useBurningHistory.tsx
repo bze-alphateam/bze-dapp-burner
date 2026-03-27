@@ -1,20 +1,16 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import { getBlockTimeByHeight } from '@/query/block';
-import {useAssets, useAssetsContext} from '@/hooks/useAssets';
-import { useAssetsValue } from '@/hooks/useAssetsValue';
+import { getBlockTimeByHeight, useAssetsValue, uAmountToBigNumberAmount, formatDate, BurnHistoryItem, useAssets } from '@bze/bze-ui-kit';
+import { useBurnerContext } from './useBurnerContext';
 import BigNumber from 'bignumber.js';
-import { uAmountToBigNumberAmount } from '@/utils/amount';
 import { parseCoins } from '@cosmjs/stargate';
-import {formatDate} from "@/utils/formatter";
-import {BurnHistoryItem} from "@/types/burn";
 
 export function useBurningHistory(filterDenom?: string) {
     const [burnHistory, setBurnHistory] = useState<BurnHistoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { denomDecimals, isLoading: isLoadingAssets } = useAssets();
     const { totalUsdValue, isLoading: isLoadingValues } = useAssetsValue();
-    const {burnHistory: burnHistoryContext, isLoading: isLoadingContext} = useAssetsContext()
+    const {burnHistory: burnHistoryContext, isLoading: isLoadingContext} = useBurnerContext()
 
     const fetchBurnHistory = useCallback(async () => {
         if (burnHistoryContext.length === 0) {

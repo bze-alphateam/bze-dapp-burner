@@ -1,38 +1,40 @@
 'use client';
 
-import {createContext, useState, ReactNode, useEffect, useCallback} from 'react';
-import {Asset, ChainAssets, IBCData, LP_ASSETS_DECIMALS} from '@/types/asset';
-import {getChainAssets} from "@/service/assets_factory";
-import {Market, MarketData} from '@/types/market';
-import {createMarketId} from "@/utils/market";
-import {getMarketHistory, getMarkets} from "@/query/markets";
-import {getAllTickers} from "@/query/aggregator";
+import {useState, ReactNode, useEffect, useCallback} from 'react';
+import {
+    AssetsContext,
+    Asset, ChainAssets, IBCData, LP_ASSETS_DECIMALS,
+    getChainAssets,
+    Market, MarketData,
+    createMarketId,
+    getMarketHistory, getMarkets,
+    getAllTickers,
+    getAddressBalances,
+    Balance,
+    getChainName, getChainNativeAssetDenom, getUSDCDenom,
+    getBZEUSDPrice,
+    getEpochsInfo,
+    CONNECTION_TYPE_NONE, ConnectionType,
+    toBigNumber, uAmountToAmount, uAmountToBigNumberAmount, uPriceToBigNumberPrice,
+    isLpDenom,
+    addDebounce,
+    LiquidityPoolData,
+    getLiquidityPools,
+    calculatePoolPrice, createPoolId, poolIdFromPoolDenom,
+    EXCLUDED_MARKETS,
+    NextBurn,
+    getAllBurnedCoins, getNextBurning,
+    checkAddressWonRaffle, getRaffles, getRaffleWinners,
+    useToast,
+    getHardcodedLockAddress,
+} from "@bze/bze-ui-kit";
 import {Coin} from "@bze/bzejs/cosmos/base/v1beta1/coin";
 import BigNumber from "bignumber.js";
 import {useChain} from "@interchain-kit/react";
-import {getChainName} from "@/constants/chain";
-import {getAddressBalances} from "@/query/bank";
-import {Balance} from "@/types/balance";
-import {getChainNativeAssetDenom, getUSDCDenom} from "@/constants/assets";
-import {getBZEUSDPrice} from "@/query/prices";
 import {EpochInfoSDKType} from "@bze/bzejs/bze/epochs/epoch";
-import {getEpochsInfo} from "@/query/epoch";
-import {CONNECTION_TYPE_NONE, ConnectionType} from "@/types/settings";
-import {toBigNumber, uAmountToAmount, uAmountToBigNumberAmount, uPriceToBigNumberPrice} from "@/utils/amount";
-import {isLpDenom} from "@/utils/denom";
-import {addDebounce} from "@/utils/debounce";
 import {LiquidityPoolSDKType} from "@bze/bzejs/bze/tradebin/store";
-import {LiquidityPoolData} from "@/types/liquidity_pool";
-import {getLiquidityPools} from "@/query/liquidity_pools";
-import {calculatePoolPrice, createPoolId, poolIdFromPoolDenom} from "@/utils/liquidity_pool";
-import {EXCLUDED_MARKETS} from "@/constants/market";
-import { NextBurn} from "@/types/burn";
-import {getAllBurnedCoins, getNextBurning} from "@/query/burner";
 import {BurnedCoinsSDKType} from "@bze/bzejs/bze/burner/burned_coins";
 import {RaffleSDKType, RaffleWinnerSDKType} from "@bze/bzejs/bze/burner/raffle";
-import {checkAddressWonRaffle, getRaffles, getRaffleWinners} from "@/query/raffle";
-import {useToast} from "@/hooks/useToast";
-import {getHardcodedLockAddress} from "@/query/module";
 
 export interface TicketResult {
     hasWon: boolean;
@@ -50,46 +52,11 @@ export interface PendingRaffleContribution {
     isComplete: boolean; // All tickets have been checked
 }
 
-export interface AssetsContextType {
-    //assets
-    assetsMap: Map<string, Asset>;
-    updateAssets: () => Promise<Map<string, Asset>>;
+import type { AssetsContextType as BaseAssetsContextType } from "@bze/bze-ui-kit";
 
-    marketsMap: Map<string, Market>;
-    updateMarkets: () => void;
-
-    marketsDataMap: Map<string, MarketData>;
-    updateMarketsData: () => Promise<Map<string, MarketData>>;
-
-    poolsMap: Map<string, LiquidityPoolSDKType>;
-    poolsDataMap: Map<string, LiquidityPoolData>;
-    updateLiquidityPools: () => Promise<void>;
-
-    balancesMap: Map<string, Balance>;
-    updateBalances: () => void;
-
+export interface AssetsContextType extends BaseAssetsContextType {
     lockBalance: Map<string, Balance>;
     updateLockBalance: () => void;
-
-    // holds a map denom => USD price
-    // assets with price 0 will be in this map
-    // assets that are not in this map their USD value should not be displayed (example: USDC coin)
-    usdPricesMap: Map<string, BigNumber>;
-
-    //others
-    isLoading: boolean;
-    isLoadingPrices: boolean;
-
-
-    // holds a list of blockchains IBC details. It is populated from assets details.
-    // WARNING: it can hold IBC details that are incomplete (missing chain.channelId or missing chain.counterparty.channelId)
-    ibcChains: IBCData[]
-
-    epochs: Map<string, EpochInfoSDKType>
-    updateEpochs: () => void;
-
-    connectionType: ConnectionType;
-    updateConnectionType: (conn: ConnectionType) => void;
 
     nextBurn: NextBurn | undefined;
     updateNextBurn: () => Promise<void>;
@@ -112,8 +79,6 @@ export interface AssetsContextType {
     setSettingsVersion: (version: number) => void;
 }
 
-export const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
-
 interface AssetsProviderProps {
     children: ReactNode;
 }
@@ -124,8 +89,13 @@ const getPoolData = (pool: LiquidityPoolSDKType, prices: Map<string, BigNumber>,
     const isComplete = basePrice.gt(0) && quotePrice.gt(0)
 
     return {
+        poolId: pool.id,
+        base: pool.base,
+        quote: pool.quote,
         usdValue: basePrice.multipliedBy(uAmountToAmount(pool.reserve_base, baseAsset?.decimals || 0)).plus(quotePrice.multipliedBy(uAmountToAmount(pool.reserve_quote, quoteAsset?.decimals || 0))),
         usdVolume: toBigNumber(0), //TODO: get volume from Aggregator
+        baseVolume: toBigNumber(0),
+        quoteVolume: toBigNumber(0),
         isComplete: isComplete,
         apr: '0', //TODO: calculate APR
         usdFees: toBigNumber(0) //calculate fees
@@ -681,7 +651,7 @@ export function AssetsProvider({ children }: AssetsProviderProps) {
             processPendingRaffleContributions,
             settingsVersion,
             setSettingsVersion,
-        }}>
+        } as AssetsContextType}>
             {children}
         </AssetsContext.Provider>
     );

@@ -14,13 +14,9 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { RaffleInfo } from "@/components/raffle-info";
 import { useRaffles } from "@/hooks/useRaffles";
-import { useAsset } from "@/hooks/useAssets";
-import { HighlightText } from "@/components/ui/highlight";
-import {uAmountToBigNumberAmount, prettyAmount, toBigNumber} from "@/utils/amount";
-import { formatTimeRemainingFromEpochs } from "@/utils/formatter";
+import { useAsset, HighlightText, uAmountToBigNumberAmount, prettyAmount, toBigNumber, formatTimeRemainingFromEpochs, useEpochs } from "@bze/bze-ui-kit";
 import { RaffleSDKType } from "@bze/bzejs/bze/burner/raffle";
 import BigNumber from "bignumber.js";
-import {useEpochs} from "@/hooks/useEpochs";
 import {AssetLogo} from "@/components/ui/asset_logo";
 
 interface RaffleCardProps {

@@ -1,9 +1,5 @@
-import {Asset} from "@/types/asset";
+import {Asset, isLpDenom, poolIdFromPoolDenom, useLiquidityPool, useAsset} from "@bze/bze-ui-kit";
 import {useMemo} from "react";
-import {isLpDenom} from "@/utils/denom";
-import {poolIdFromPoolDenom} from "@/utils/liquidity_pool";
-import {useLiquidityPool} from "@/hooks/useLiquidityPools";
-import {useAsset} from "@/hooks/useAssets";
 import {TokenLogo} from "@/components/ui/token_logo";
 import {LPTokenLogo} from "@/components/ui/lp_token_logo";
 

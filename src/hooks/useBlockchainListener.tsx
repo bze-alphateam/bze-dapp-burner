@@ -1,22 +1,25 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {getSettings} from "@/storage/settings";
 import {useChain} from "@interchain-kit/react";
-import {getChainName} from "@/constants/chain";
-import {blockchainEventManager} from "@/service/blockchain_event_manager";
 import {
-    CURRENT_WALLET_BALANCE_EVENT, EPOCH_START_EVENT,
+    getSettings,
+    getChainName,
+    blockchainEventManager,
+    CURRENT_WALLET_BALANCE_EVENT,
+    EPOCH_START_EVENT,
     LOCK_CHANGED_EVENT,
     NEXT_BURN_CHANGED_EVENT,
     ORDER_BOOK_CHANGED_EVENT,
     ORDER_EXECUTED_EVENT,
     RAFFLE_CHANGED_EVENT,
     SUPPLY_CHANGED_EVENT,
-    TendermintEvent
-} from "@/types/events";
+    TendermintEvent,
+    getChainNativeAssetDenom,
+    getBurnerModuleAddress,
+    getHardcodedLockAddress,
+    getRaffleModuleAddress,
+} from "@bze/bze-ui-kit";
 import {parseCoins} from "@cosmjs/amino";
 import {coins} from "@cosmjs/stargate";
-import {getChainNativeAssetDenom} from "@/constants/assets";
-import {getBurnerModuleAddress, getHardcodedLockAddress, getRaffleModuleAddress} from "@/query/module";
 
 const BLOCK_SUBSCRIPTION_ID = 1;
 const TX_RECIPIENT_SUBSCRIPTION_ID = 2;

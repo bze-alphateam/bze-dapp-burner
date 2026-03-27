@@ -2,19 +2,22 @@
 
 import { useBlockchainListener } from '@/hooks/useBlockchainListener';
 import {useEffect} from "react";
-import {useAssetsContext} from "@/hooks/useAssets";
-import {blockchainEventManager} from "@/service/blockchain_event_manager";
 import {
+    blockchainEventManager,
     CURRENT_WALLET_BALANCE_EVENT,
     EPOCH_START_EVENT,
     LOCK_CHANGED_EVENT,
     NEXT_BURN_CHANGED_EVENT,
     ORDER_EXECUTED_EVENT,
     RAFFLE_CHANGED_EVENT,
-    SUPPLY_CHANGED_EVENT
-} from "@/types/events";
-import {addDebounce, addMultipleDebounce} from "@/utils/debounce";
-import {CONNECTION_TYPE_NONE, CONNECTION_TYPE_POLLING, CONNECTION_TYPE_WS} from "@/types/settings";
+    SUPPLY_CHANGED_EVENT,
+    addDebounce,
+    addMultipleDebounce,
+    CONNECTION_TYPE_NONE,
+    CONNECTION_TYPE_POLLING,
+    CONNECTION_TYPE_WS,
+} from "@bze/bze-ui-kit";
+import { useBurnerContext } from "@/hooks/useBurnerContext";
 
 const POLLING_INTERVAL = 10 * 1000;
 const RAFFLE_POLLING_INTERVAL = 7 * 1000;
@@ -31,7 +34,7 @@ export function BlockchainListenerWrapper() {
         processPendingRaffleContributions,
         updateLockBalance,
         updateEpochs,
-    } = useAssetsContext()
+    } = useBurnerContext()
 
     useEffect(() => {
         //will call this to trigger the connection type change to NONE after (polling_interval * 2) seconds

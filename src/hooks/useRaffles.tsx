@@ -1,8 +1,8 @@
 import {useMemo} from "react";
-import { useAssetsContext } from "@/hooks/useAssets";
+import { useBurnerContext } from "./useBurnerContext";
 
 export function useRaffles() {
-    const { raffles: rafflesMap, isLoading, updateRaffles } = useAssetsContext();
+    const { raffles: rafflesMap, isLoading, updateRaffles } = useBurnerContext();
 
     const raffles = useMemo(() => {
         return Array.from(rafflesMap.values());
@@ -16,7 +16,7 @@ export function useRaffles() {
 }
 
 export function useRaffle(denom: string) {
-    const { raffles, isLoading, raffleWinners } = useAssetsContext();
+    const { raffles, isLoading, raffleWinners } = useBurnerContext();
 
     const raffle = useMemo(() => {
         if (!denom) return undefined;
@@ -42,7 +42,7 @@ export function useRaffleContributions() {
         addPendingRaffleContribution,
         removePendingRaffleContribution,
         markRaffleContributionAsClosed
-    } = useAssetsContext();
+    } = useBurnerContext();
 
     const getPendingContribution = useMemo(() => {
         return (denom: string) => pendingRaffleContributions.get(denom);

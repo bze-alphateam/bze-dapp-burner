@@ -1,8 +1,7 @@
-
-import {useAssetsContext} from "@/hooks/useAssets";
+import {useBurnerContext} from "./useBurnerContext";
 
 export function useNextBurning() {
-    const {nextBurn, isLoading, updateNextBurn} = useAssetsContext()
+    const {nextBurn, isLoading, updateNextBurn} = useBurnerContext()
 
     return {
         nextBurn,
