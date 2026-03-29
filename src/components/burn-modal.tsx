@@ -206,10 +206,10 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
         })
 
         setIsSubmitting(true);
-        await tx([msg]);
+        const success = await tx([msg]);
 
         setIsSubmitting(false);
-        onClose();
+        if (success) onClose();
 
     }, [address, selectedCoin, amount, denomDecimals, selectedBalance, onClose, tx, toast]);
 
