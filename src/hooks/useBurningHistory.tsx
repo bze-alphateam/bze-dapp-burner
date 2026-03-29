@@ -1,9 +1,8 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import { getBlockTimeByHeight, useAssetsValue, uAmountToBigNumberAmount, formatDate, BurnHistoryItem, useAssets } from '@bze/bze-ui-kit';
+import { getBlockTimeByHeight, useAssetsValue, uAmountToBigNumberAmount, formatDate, BurnHistoryItem, useAssets, parseCoins } from '@bze/bze-ui-kit';
 import { useBurnerContext } from './useBurnerContext';
 import BigNumber from 'bignumber.js';
-import { parseCoins } from '@cosmjs/stargate';
 
 export function useBurningHistory(filterDenom?: string) {
     const [burnHistory, setBurnHistory] = useState<BurnHistoryItem[]>([]);
