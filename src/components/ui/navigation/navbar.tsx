@@ -62,7 +62,7 @@ export const TopNavBar = ({ appLabel = "DEX" }: TopNavBarProps) => {
                             <Sidebar
                                 ariaLabel="Wallet"
                                 trigger={
-                                    <Button size={{ base: 'sm', md: 'md' }}>
+                                    <Button data-wallet-trigger size={{ base: 'sm', md: 'md' }}>
                                         <LuWallet /> <Text hideBelow="md">{walletButtonText}</Text>
                                     </Button>
                                 }
