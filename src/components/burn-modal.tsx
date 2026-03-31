@@ -14,6 +14,7 @@ import {
     Dialog,
 } from "@chakra-ui/react";
 import {useState, useEffect, useMemo, useCallback} from "react";
+import {LuWallet} from "react-icons/lu";
 import { useAsset, useAssets, useBalances, useBalance, amountToUAmount, prettyAmount, toBigNumber, uAmountToAmount, uAmountToBigNumberAmount, isLpDenom, Asset, getChainName, useToast, useBZETx, sanitizeNumberInput } from "@bze/bze-ui-kit";
 import BigNumber from "bignumber.js";
 import {useChain} from "@interchain-kit/react";
@@ -213,8 +214,18 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
 
     }, [address, selectedCoin, amount, denomDecimals, selectedBalance, onClose, tx, toast]);
 
+    const isConnected = !!address;
     const hasBalance = useMemo(() => address && selectedCoin && !selectedBalance.isZero(), [address, selectedCoin, selectedBalance]);
     const isFormValid = useMemo(() => selectedCoin && amount && toBigNumber(amount).gt(0) && !amountError && hasBalance, [selectedCoin, amount, amountError, hasBalance]);
+
+    const handleConnectWallet = useCallback(() => {
+        onClose();
+        // Open the wallet sidebar by clicking its trigger
+        setTimeout(() => {
+            const trigger = document.querySelector<HTMLElement>('[data-wallet-trigger]');
+            trigger?.click();
+        }, 150);
+    }, [onClose]);
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={(e) => !isSubmitting && !e.open && onClose()}>
@@ -335,14 +346,14 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                                 placeholder={selectedAsset ? `0.00 ${selectedAsset.ticker}` : "0.00"}
                                                 value={amount}
                                                 onChange={(e) => handleAmountChange(sanitizeNumberInput(e.target.value))}
-                                                disabled={!selectedCoin || isSubmitting || !hasBalance}
+                                                disabled={!isConnected || !selectedCoin || isSubmitting || !hasBalance}
                                             />
                                             <Button
                                                 size="lg"
                                                 variant="outline"
                                                 colorPalette="orange"
                                                 onClick={handleMaxClick}
-                                                disabled={!selectedCoin || isSubmitting || !hasBalance}
+                                                disabled={!isConnected || !selectedCoin || isSubmitting || !hasBalance}
                                             >
                                                 MAX
                                             </Button>
@@ -383,26 +394,45 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                         </Dialog.Body>
 
                         <Dialog.Footer>
-                            <HStack gap="3" width="full">
-                                <Button
-                                    flex="1"
-                                    variant="outline"
-                                    onClick={onClose}
-                                    disabled={isSubmitting}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    flex="1"
-                                    colorPalette="orange"
-                                    onClick={handleBurn}
-                                    disabled={!isFormValid || isSubmitting}
-                                    loading={isSubmitting}
-                                    loadingText="Burning..."
-                                >
-                                    🔥 Burn It!
-                                </Button>
-                            </HStack>
+                            {!isConnected ? (
+                                <HStack gap="3" width="full">
+                                    <Button
+                                        flex="1"
+                                        variant="outline"
+                                        onClick={onClose}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        flex="1"
+                                        colorPalette="orange"
+                                        onClick={handleConnectWallet}
+                                    >
+                                        <LuWallet /> Connect Wallet
+                                    </Button>
+                                </HStack>
+                            ) : (
+                                <HStack gap="3" width="full">
+                                    <Button
+                                        flex="1"
+                                        variant="outline"
+                                        onClick={onClose}
+                                        disabled={isSubmitting}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        flex="1"
+                                        colorPalette="orange"
+                                        onClick={handleBurn}
+                                        disabled={!isFormValid || isSubmitting}
+                                        loading={isSubmitting}
+                                        loadingText="Burning..."
+                                    >
+                                        🔥 Burn It!
+                                    </Button>
+                                </HStack>
+                            )}
                         </Dialog.Footer>
 
                         <Dialog.CloseTrigger disabled={isSubmitting} />
