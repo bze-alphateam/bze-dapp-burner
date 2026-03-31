@@ -277,6 +277,7 @@ export const BurnModal = ({ isOpen, onClose, preselectedCoin }: BurnModalProps) 
                                                 size="md"
                                                 value={selectedCoin ? [selectedCoin] : []}
                                                 onValueChange={(details) => setSelectedCoin(details.value[0] || '')}
+                                                disabled={!isConnected || tokensCollection.items.length === 0}
                                             >
                                                 <Select.Control>
                                                     <Select.Trigger>
