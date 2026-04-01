@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "patch-package"
   },
   "dependencies": {
-    "@bze/bze-ui-kit": "^1.1.5",
+    "@bze/bze-ui-kit": "^1.1.7",
     "@bze/bzejs": "^2.0.0",
     "@chain-registry/utils": "^2.0.178",
     "@chakra-ui/react": "^3.22.0",
@@ -38,6 +39,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "patch-package": "^8.0.1",
     "typescript": "^5"
   },
   "overrides": {
