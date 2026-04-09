@@ -1,7 +1,5 @@
-import {Asset, isLpDenom, poolIdFromPoolDenom, useLiquidityPool, useAsset} from "@bze/bze-ui-kit";
+import {Asset, isLpDenom, poolIdFromPoolDenom, useLiquidityPool, useAsset, TokenLogo, LPTokenLogo} from "@bze/bze-ui-kit";
 import {useMemo} from "react";
-import {TokenLogo} from "@/components/ui/token_logo";
-import {LPTokenLogo} from "@/components/ui/lp_token_logo";
 
 interface AssetLogoProps {
     asset: Asset;
