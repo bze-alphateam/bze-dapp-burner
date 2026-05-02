@@ -8,7 +8,6 @@ import {Toaster, TestnetBanner, HubConnectorInit, SettingsProvider, setStorageKe
 import {AssetsProvider} from "@/contexts/assets_context";
 import {BlockchainListenerWrapper} from "@/components/blockchain-listener-wrapper";
 import {GoogleTagManager} from "@next/third-parties/google";
-import {SecurityAuditWarning} from "@/components/security-audit-warning";
 
 setStorageKeyVersion('2');
 setDefaultTxMemo('burner.getbze.com');
@@ -51,7 +50,6 @@ export default function RootLayout({children}: { children: React.ReactNode }) {
                     {children}
                   <Toaster />
                   <HubConnectorInit />
-                  <SecurityAuditWarning />
                   <TestnetBanner />
               </AssetsProvider>
               </SettingsProvider>
